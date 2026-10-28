@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}{{ student.student_name }} — CampusConnect{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block body %}
+<div class="dashboard-layout">
+  {% include "_sidebar.html" %}
+
+  <main class="dashboard-main">
+    <header class="dashboard-topbar">
+      <div class="topbar-left">
+        {% if session.get('role') == 'ADMINISTRATOR' %}
+          <a href="{{ url_for('manage_students') }}" class="breadcrumb-back">← All Students</a>
+        {% elif session.get('role') == 'COMPANY' %}
+          <a href="{{ url_for('company_dashboard') }}" class="breadcrumb-back">← Back to Company Dashboard</a>
+        {% else %}
+          <a href="{{ url_for('student_dashboard') }}" class="breadcrumb-back">← Back to Student Dashboard</a>
+        {% endif %}
+        <h1 class="topbar-title">{{ student.student_name }}</h1>
+        <p class="topbar-sub">{{ student.student_id }} · {{ student.dept_name }}</p>
+      </div>
+      <div class="topbar-right" style="display:flex;gap:.75rem;align-items:center;">
+        {% set can_manage = is_demo_user or session.get('role') == 'ADMINISTRATOR' or session.get('student_id') == student.student_id %}
+        {% if can_manage %}
+        <a href="{{ url_for('student_edit', student_id=student.student_id) }}"
+           class="btn-secondary" id="editStudentBtn">✏ Edit</a>
+        {% if is_seeded %}
+          <span class="btn-secondary" style="opacity:.6;cursor:not-allowed;" title="Baseline demonstration student is protected from deletion">🔒 Protected</span>
+        {% else %}
+          <form method="POST"
+                action="{{ url_for('student_delete', student_id=student.student_id) }}"
+                onsubmit="return handleStudentDetailDelete(this, '{{ student.student_name|e }}', '{{ student.student_id|e }}', {{ total_deps }});">
+            <input type="hidden" name="confirm_cleanup" value="0">
+            <button type="submit" class="btn-danger" id="deleteStudentDetailBtn">🗑 Delete</button>
+          </form>
+        {% endif %}
+        {% endif %}
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}{% for cat, msg in messages %}
+        <div class="alert alert--{{ cat }}">{{ msg }}</div>
+      {% endfor %}{% endif %}
+    {% endwith %}
+
+    {% if placement %}
+    <div class="placement-banner">
+      <div class="placement-banner-inner">
+        <div class="placement-confetti">🎉</div>
+        <div>
+          <h2 class="placement-banner-title">Placed!</h2>
+          <p class="placement-banner-sub">
+            {{ placement.company_name }} · {{ placement.opp_title }}
+            {% if placement.package %} · ₹{{ "{:,.0f}".format(placement.package) }} p.a.{% endif %}
+          </p>
+          <p class="placement-banner-date">{{ placement.plm_date }}</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Profile -->
+    <section class="card-section" id="detail-profile">
+      <h2 class="section-title">📋 Profile</h2>
+      <div class="profile-grid">
+        <div class="profile-avatar">
+          <span class="avatar-letter">{{ student.student_name[0] }}</span>
+        </div>
+        <div class="profile-details">
+          <div class="profile-meta-grid">
+            <div class="meta-item"><span class="meta-label">Student ID</span><span class="meta-value">{{ student.student_id }}</span></div>
+            <div class="meta-item"><span class="meta-label">Email</span><span class="meta-value">{{ student.student_email or '—' }}</span></div>
+            <div class="meta-item"><span class="meta-label">Phone</span><span class="meta-value">{{ student.student_phone or '—' }}</span></div>
+            <div class="meta-item"><span class="meta-label">Department</span><span class="meta-value">{{ student.dept_name }}</span></div>
+            <div class="meta-item"><span class="meta-label">CGPA</span><span class="meta-value"><span class="cgpa-badge">{{ student.cgpa }}</span></span></div>
+            <div class="meta-item"><span class="meta-label">Graduation Year</span><span class="meta-value">{{ student.graduation_yr }}</span></div>
+          </div>
+          <div class="skills-section">
+            <span class="meta-label">Skills</span>
+            {% if skills %}
+            <div class="skill-tags">
+              {% for skill in skills %}
+                <span class="skill-tag">{{ skill }}</span>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p style="color: var(--ink-muted, #94a3b8); font-size: .85rem; margin-top: .4rem;">No skills assigned yet.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Apply for Opportunity (Authorized Demo Action) ── -->
+    {% if is_demo_user or session.get('role') in ['ADMINISTRATOR', 'ADMIN', 'COMPANY'] or session.get('student_id') == student.student_id %}
+    <section class="card-section" id="apply-section">
+      <h2 class="section-title">📝 Apply for an Opportunity <span class="count-badge">Apply on Behalf</span></h2>
+      <p style="font-size:.85rem; color:var(--ink-muted); margin-bottom:1rem;">
+        Submit a job or internship application for <strong>{{ student.student_name }}</strong> (CGPA: {{ student.cgpa }}).
+      </p>
+      <form method="POST" action="{{ url_for('apply_job') }}" style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;" id="detailApplyForm">
+        <input type="hidden" name="student_id" value="{{ student.student_id }}">
+        <input type="hidden" name="redirect_to" value="{{ url_for('student_detail', student_id=student.student_id) }}">
+        <div style="flex:1; min-width:260px;">
+          <select name="opp_id" class="filter-select" required id="detailSelectOpp">
+            <option value="">— Select Available Opportunity —</option>
+            {% for op in available_opportunities %}
+              {% set already_applied = op.opp_id in applied_opp_ids %}
+              {% set cgpa_ok = student.cgpa is none or op.min_cgpa is none or student.cgpa >= op.min_cgpa %}
+              <option value="{{ op.opp_id }}" {% if already_applied or not cgpa_ok %}disabled{% endif %}>
+                {{ op.opp_title }} · {{ op.company_name }} ({{ op.opp_type }}) — Min CGPA {{ op.min_cgpa }}{% if already_applied %} [Already Applied]{% elif not cgpa_ok %} [CGPA Too Low]{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn-primary" id="applyDetailBtn">
+          🚀 Submit Application
+        </button>
+      </form>
+    </section>
+    {% endif %}
+
+    <!-- Applications -->
+    <section class="card-section" id="detail-apps">
+      <h2 class="section-title">📋 Applications <span class="count-badge">{{ applications|length }}</span></h2>
+      {% if applications %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>ID</th><th>Company</th><th>Role</th><th>Type</th><th>Applied</th><th>Interview</th><th>Round</th></tr>
+          </thead>
+          <tbody>
+            {% for a in applications %}
+            <tr>
+              <td class="td-id">{{ a.appl_id }}</td>
+              <td>{{ a.company_name }}</td>
+              <td>{{ a.opp_title }}</td>
+              <td><span class="type-badge type-badge--{{ a.opp_type.lower() }}">{{ a.opp_type }}</span></td>
+              <td>{{ a.appl_date }}</td>
+              <td><span class="status-badge status-badge--{{ a.interview_status.lower() }}">{{ a.interview_status }}</span></td>
+              <td>{{ a.interview_rd or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state"><p>No applications on record.</p></div>
+      {% endif %}
+    </section>
+
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function handleStudentDetailDelete(form, name, id, depCount) {
+  if (depCount > 0) {
+    var ok = confirm("Student " + name + " (" + id + ") has " + depCount + " associated test record(s) (such as job applications).\n\nDo you want to permanently delete this test student along with all associated test records?");
+    if (ok) {
+      form.querySelector('input[name="confirm_cleanup"]').value = "1";
+      return true;
+    }
+    return false;
+  }
+  return confirm("Are you sure you want to delete student " + name + " (" + id + ")?\nThis action cannot be undone.");
+}
+</script>
+{% endblock %}

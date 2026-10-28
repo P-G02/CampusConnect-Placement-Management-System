@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}{{ company.company_name }} — CampusConnect{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block body %}
+<div class="dashboard-layout">
+  {% include "_sidebar.html" %}
+
+  <main class="dashboard-main">
+    <header class="dashboard-topbar">
+      <div class="topbar-left">
+        {% if session.get('role') == 'ADMINISTRATOR' %}
+          <a href="{{ url_for('manage_companies') }}" class="breadcrumb-back">← All Companies</a>
+        {% elif session.get('role') == 'COMPANY' %}
+          <a href="{{ url_for('company_dashboard') }}" class="breadcrumb-back">← Back to Company Dashboard</a>
+        {% else %}
+          <a href="{{ url_for('student_dashboard') }}" class="breadcrumb-back">← Back to Student Dashboard</a>
+        {% endif %}
+        <h1 class="topbar-title">{{ company.company_name }}</h1>
+        <p class="topbar-sub">{{ company.company_id }} · 📍 {{ company.company_locn or '—' }}</p>
+      </div>
+      <div class="topbar-right" style="display:flex;gap:.75rem;align-items:center;">
+        {% set can_edit = session.get('role') == 'ADMINISTRATOR' or session.get('company_id') == company.company_id %}
+        {% if can_edit %}
+        <a href="{{ url_for('company_edit', company_id=company.company_id) }}"
+           class="btn-secondary" id="editCompanyTopBtn">✏ Edit</a>
+        <form method="POST"
+              action="{{ url_for('company_delete', company_id=company.company_id) }}"
+              onsubmit="return confirm('Delete {{ company.company_name }}? This cannot be undone.')">
+          <button type="submit" class="btn-danger" id="deleteCompanyTopBtn">🗑 Delete</button>
+        </form>
+        {% endif %}
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}{% for cat, msg in messages %}
+        <div class="alert alert--{{ cat }}">{{ msg }}</div>
+      {% endfor %}{% endif %}
+    {% endwith %}
+
+    <!-- Company Stats Row -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-card-icon">📢</span>
+        <div>
+          <p class="stat-card-num">{{ opportunities|length }}</p>
+          <p class="stat-card-lbl">Job Postings</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">✅</span>
+        <div>
+          <p class="stat-card-num">{{ placements|length }}</p>
+          <p class="stat-card-lbl">Placements</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Company Profile -->
+    <section class="card-section" id="detail-profile">
+      <h2 class="section-title">🏢 Company Profile</h2>
+      <div class="profile-grid">
+        <div class="profile-avatar profile-avatar--company">
+          <span class="avatar-letter">{{ company.company_name[0] }}</span>
+        </div>
+        <div class="profile-details">
+          <div class="profile-meta-grid">
+            <div class="meta-item"><span class="meta-label">Company ID</span><span class="meta-value">{{ company.company_id }}</span></div>
+            <div class="meta-item"><span class="meta-label">Email</span><span class="meta-value">{{ company.company_email or '—' }}</span></div>
+            <div class="meta-item"><span class="meta-label">Phone</span><span class="meta-value">{{ company.company_phone or '—' }}</span></div>
+            <div class="meta-item"><span class="meta-label">Location</span><span class="meta-value">📍 {{ company.company_locn or '—' }}</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Opportunities -->
+    <section class="card-section" id="detail-opportunities">
+      <h2 class="section-title">📢 Job Postings <span class="count-badge">{{ opportunities|length }}</span></h2>
+      {% if opportunities %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Role</th>
+              <th>Type</th>
+              <th>Location</th>
+              <th>Package / Stipend</th>
+              <th>Min CGPA</th>
+              <th>Deadline</th>
+              <th>Applicants</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for o in opportunities %}
+            <tr {% if selected_opp and selected_opp.opp_id == o.opp_id %}style="background: #f0f4ff;"{% endif %}>
+              <td class="td-id"><code>{{ o.opp_id }}</code></td>
+              <td class="td-role">{{ o.opp_title }}</td>
+              <td><span class="type-badge type-badge--{{ o.opp_type.lower() }}">{{ o.opp_type }}</span></td>
+              <td>{{ o.opp_locn }}</td>
+              <td>
+                {% if o.package %}₹{{ "{:,.0f}".format(o.package) }}{% endif %}
+                {% if o.stipend %}₹{{ "{:,.0f}".format(o.stipend) }}/mo{% endif %}
+              </td>
+              <td>{{ o.min_cgpa }}</td>
+              <td class="td-deadline">{{ o.deadline }}</td>
+              <td><span class="count-badge">{{ o.applicant_count }}</span></td>
+              <td>
+                <div style="display:flex; gap:.4rem; align-items:center;">
+                  <a href="{{ url_for('opportunity_applicants', opp_id=o.opp_id) }}"
+                     class="btn-secondary"
+                     style="padding:.3rem .7rem; font-size:.82rem; white-space:nowrap;"
+                     id="viewApplicantsBtn-{{ o.opp_id }}">
+                    👥 View Applicants
+                  </a>
+                  <a href="{{ url_for('company_detail', company_id=company.company_id, opp_id=o.opp_id) }}#selected-opp-applicants"
+                     class="btn-secondary"
+                     style="padding:.3rem .55rem; font-size:.82rem; white-space:nowrap; opacity:.85;"
+                     title="Preview applicants on this page"
+                     id="previewApplicantsBtn-{{ o.opp_id }}">
+                    🔍 Quick View
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state"><p>No job postings for this company.</p></div>
+      {% endif %}
+    </section>
+
+    <!-- Inline Applicants Section when an opportunity is selected -->
+    {% if selected_opp %}
+    <section class="card-section" id="selected-opp-applicants" style="border: 1.5px solid var(--cobalt-light); background: linear-gradient(180deg, #f8faff 0%, #fff 100%);">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.75rem; margin-bottom:1.25rem;">
+        <div>
+          <h2 class="section-title" style="margin-bottom:.25rem;">
+            👥 Applicants: <span class="accent">{{ selected_opp.opp_title }}</span>
+            <span class="count-badge">{{ selected_opp_applicants|length }}</span>
+          </h2>
+          <p style="font-size:.85rem; color:var(--ink-soft); margin:0;">
+            Opportunity ID: <code>{{ selected_opp.opp_id }}</code> · {{ selected_opp.opp_type }} · Min CGPA: {{ selected_opp.min_cgpa or '—' }}
+          </p>
+        </div>
+        <a href="{{ url_for('opportunity_applicants', opp_id=selected_opp.opp_id) }}" class="btn-primary" style="padding:.4rem .9rem; font-size:.85rem;" id="openFullApplicantsPageBtn">
+          Open Full Applicants View →
+        </a>
+      </div>
+
+      {% if selected_opp_applicants %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Appl ID</th>
+              <th>Student ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Department</th>
+              <th>CGPA</th>
+              <th>Applied Date</th>
+              <th>Status</th>
+              <th>Round</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in selected_opp_applicants %}
+            <tr>
+              <td class="td-id"><code>{{ a.appl_id }}</code></td>
+              <td class="td-id"><a href="{{ url_for('student_detail', student_id=a.student_id) }}">{{ a.student_id }}</a></td>
+              <td style="font-weight:600;">{{ a.student_name }}</td>
+              <td class="td-email">{{ a.student_email }}</td>
+              <td>{{ a.dept_name or '—' }}</td>
+              <td><span class="cgpa-badge">{{ a.cgpa }}</span></td>
+              <td class="td-deadline">{{ a.appl_date }}</td>
+              <td><span class="status-badge status-badge--{{ a.interview_status.lower() }}">{{ a.interview_status }}</span></td>
+              <td>{{ a.interview_rd or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <p>No students have applied for {{ selected_opp.opp_title }} yet.</p>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- Placements -->
+    {% if placements %}
+    <section class="card-section" id="detail-placements">
+      <h2 class="section-title">✅ Placed Students <span class="count-badge">{{ placements|length }}</span></h2>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>Placement ID</th><th>Student</th><th>Role</th><th>Package</th><th>Date</th></tr>
+          </thead>
+          <tbody>
+            {% for p in placements %}
+            <tr>
+              <td class="td-id">{{ p.plm_id }}</td>
+              <td>{{ p.student_name }}</td>
+              <td>{{ p.opp_title }}</td>
+              <td>{% if p.package %}₹{{ "{:,.0f}".format(p.package) }}{% else %}—{% endif %}</td>
+              <td>{{ p.plm_date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+  </main>
+</div>
+{% endblock %}

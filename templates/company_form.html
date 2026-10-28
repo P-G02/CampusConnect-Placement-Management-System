@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% set is_edit = (action == 'edit') %}
+{% block title %}{{ 'Edit Company' if is_edit else 'Add Company' }} — CampusConnect{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block body %}
+<div class="dashboard-layout">
+  {% include "_sidebar.html" %}
+
+  <main class="dashboard-main">
+    <header class="dashboard-topbar">
+      <div class="topbar-left">
+        <a href="{{ url_for('manage_companies') }}" class="breadcrumb-back">← Companies</a>
+        <h1 class="topbar-title">{{ '✏ Edit Company' if is_edit else '+ Add Company' }}</h1>
+        {% if is_edit %}
+          <p class="topbar-sub">Editing record: <strong>{{ company.company_id if company else '' }}</strong></p>
+        {% endif %}
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}{% for cat, msg in messages %}
+        <div class="alert alert--{{ cat }}">
+          <span class="alert-icon">{% if cat=='error' %}✕{% else %}ℹ{% endif %}</span>{{ msg }}
+        </div>
+      {% endfor %}{% endif %}
+    {% endwith %}
+
+    <section class="card-section form-card">
+      <form method="POST"
+            action="{{ url_for('company_edit', company_id=company.company_id) if is_edit else url_for('company_new') }}"
+            novalidate id="companyForm">
+
+        <div class="form-grid">
+
+          <!-- Company ID -->
+          <div class="field-group">
+            <label class="field-label" for="f_company_id">Company ID *</label>
+            <input type="text" id="f_company_id" name="company_id" class="field-input"
+                   placeholder="e.g. C10999"
+                   value="{{ company.company_id if company else '' }}"
+                   {% if is_edit %}readonly{% endif %}
+                   required maxlength="6" />
+            {% if is_edit %}
+              <p class="field-hint">ID cannot be changed after creation.</p>
+            {% else %}
+              <p class="field-hint">Format: 'C' followed by exactly 5 digits, e.g. C10999</p>
+            {% endif %}
+          </div>
+
+          <!-- Company Name -->
+          <div class="field-group">
+            <label class="field-label" for="f_company_name">Company Name *</label>
+            <input type="text" id="f_company_name" name="company_name" class="field-input"
+                   placeholder="e.g. Google India"
+                   value="{{ company.company_name if company else '' }}"
+                   required maxlength="50" />
+          </div>
+
+          <!-- Email -->
+          <div class="field-group">
+            <label class="field-label" for="f_company_email">Company Email</label>
+            <input type="email" id="f_company_email" name="company_email" class="field-input"
+                   placeholder="hr@company.com"
+                   value="{{ company.company_email if company else '' }}"
+                   maxlength="50" />
+          </div>
+
+          <!-- Phone -->
+          <div class="field-group">
+            <label class="field-label" for="f_company_phone">Phone Number</label>
+            <input type="text" id="f_company_phone" name="company_phone" class="field-input"
+                   placeholder="e.g. 9100000099"
+                   value="{{ company.company_phone if company else '' }}"
+                   maxlength="15" />
+          </div>
+
+          <!-- Location -->
+          <div class="field-group">
+            <label class="field-label" for="f_company_locn">Location</label>
+            <input type="text" id="f_company_locn" name="company_locn" class="field-input"
+                   placeholder="e.g. Bengaluru"
+                   value="{{ company.company_locn if company else '' }}"
+                   maxlength="50" />
+          </div>
+
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" id="submitCompanyBtn">
+            {{ 'Save Changes' if is_edit else 'Create Company' }}
+          </button>
+          <a href="{{ url_for('manage_companies') }}" class="btn-secondary">Cancel</a>
+        </div>
+
+      </form>
+    </section>
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.getElementById('companyForm').addEventListener('submit', function() {
+  var btn = document.getElementById('submitCompanyBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+});
+</script>
+{% endblock %}

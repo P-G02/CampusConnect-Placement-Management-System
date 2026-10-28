@@ -1,0 +1,533 @@
+{% extends "base.html" %}
+{% block title %}Company Dashboard — CampusConnect{% endblock %}
+{% block description %}Manage your campus placement postings, applicant decisions, and interview pipeline.{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block body %}
+<div class="dashboard-layout">
+
+  {% include "_sidebar.html" %}
+
+  <!-- ── Main Content ──────────────────────────────────────── -->
+  <main class="dashboard-main">
+
+    <!-- Top bar -->
+    <header class="dashboard-topbar">
+      <div class="topbar-left">
+        <h1 class="topbar-title">
+          Welcome, <span class="accent">{{ session.get('display_name', 'Company') }}</span> 🏢
+        </h1>
+        <p class="topbar-sub">Company Recruitment Portal · Company ID: <code>{{ session.get('company_id') }}</code></p>
+      </div>
+      <div class="topbar-right">
+        <span class="role-badge role-badge--company">🏢 Company</span>
+      </div>
+    </header>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert--{{ category }}" role="alert">
+            <span class="alert-icon">
+              {% if category == 'error' or category == 'danger' %}✕{% elif category == 'warning' %}⚠{% else %}✓{% endif %}
+            </span>
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- ── Stats Row ─────────────────────────────────────── -->
+    <div class="stats-row" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
+      <div class="stat-card">
+        <span class="stat-card-icon">📢</span>
+        <div>
+          <p class="stat-card-num">{{ opportunities|length }}</p>
+          <p class="stat-card-lbl">Active Postings</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">👥</span>
+        <div>
+          <p class="stat-card-num">{{ applications|length }}</p>
+          <p class="stat-card-lbl">Total Applicants</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">🎯</span>
+        <div>
+          <p class="stat-card-num">{{ interviews|length }}</p>
+          <p class="stat-card-lbl">Interviews Scheduled</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">✅</span>
+        <div>
+          <p class="stat-card-num">{{ placements|length }}</p>
+          <p class="stat-card-lbl">Placed Students</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Company Profile ───────────────────────────────── -->
+    {% if company %}
+    <section class="card-section" id="company-profile" style="margin-bottom: 2rem;">
+      <h2 class="section-title">🏢 Company Profile</h2>
+      <div class="profile-grid">
+        <div class="profile-avatar profile-avatar--company">
+          <span class="avatar-letter">{{ company.company_name[0] }}</span>
+        </div>
+        <div class="profile-details">
+          <h3 class="profile-name">{{ company.company_name }}</h3>
+          <div class="profile-meta-grid">
+            <div class="meta-item"><span class="meta-label">Company ID</span><span class="meta-value"><code>{{ company.company_id }}</code></span></div>
+            <div class="meta-item"><span class="meta-label">Email</span><span class="meta-value">{{ company.company_email or '—' }}</span></div>
+            <div class="meta-item"><span class="meta-label">Phone</span><span class="meta-value">{{ company.company_phone or '—' }}</span></div>
+            <div class="meta-item"><span class="meta-label">Location</span><span class="meta-value">📍 {{ company.company_locn or '—' }}</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- ── 1. Job Postings ───────────────────────────────── -->
+    <section class="card-section" id="postings-section" style="margin-bottom: 2rem; scroll-margin-top: 1rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+        <div>
+          <h2 class="section-title" style="margin-bottom:.25rem;">
+            📢 Job Postings <span class="count-badge" id="postingsCountBadge">{{ opportunities|length }}</span>
+          </h2>
+          <p style="color:var(--ink-muted); font-size:.88rem; margin:0;">Active recruitment drives and student openings published by {{ company.company_name if company else 'your company' }}.</p>
+        </div>
+      </div>
+
+      {% if opportunities %}
+      <div class="table-wrapper">
+        <table class="data-table" id="postingsTable">
+          <thead>
+            <tr>
+              <th>Opp ID</th>
+              <th>Role Title</th>
+              <th>Type</th>
+              <th>Location</th>
+              <th>Package / Stipend</th>
+              <th>Min CGPA</th>
+              <th>Deadline</th>
+              <th>Openings</th>
+              <th>Applicants</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for opp in opportunities %}
+            <tr id="oppRow-{{ opp.opp_id }}">
+              <td class="td-id"><code>{{ opp.opp_id }}</code></td>
+              <td class="td-role" style="font-weight:600; color:var(--ink);">{{ opp.opp_title }}</td>
+              <td><span class="type-badge type-badge--{{ opp.opp_type.lower() }}">{{ opp.opp_type }}</span></td>
+              <td>📍 {{ opp.opp_locn or '—' }}</td>
+              <td style="font-weight:500;">
+                {% if opp.package %}₹{{ "{:,.0f}".format(opp.package) }}{% endif %}
+                {% if opp.stipend %}₹{{ "{:,.0f}".format(opp.stipend) }}/mo{% endif %}
+                {% if not opp.package and not opp.stipend %}—{% endif %}
+              </td>
+              <td><span class="cgpa-badge">{{ opp.min_cgpa }}</span></td>
+              <td class="td-deadline">{{ opp.deadline }}</td>
+              <td><span class="count-badge" style="background:var(--cobalt-pale); color:var(--cobalt-dark); font-weight:600;">{{ opp.openings or 5 }}</span></td>
+              <td><span class="count-badge">{{ opp.applicant_count }}</span></td>
+              <td style="white-space:nowrap;">
+                <div style="display:flex; gap:.35rem; align-items:center;">
+                  <a href="{{ url_for('opportunity_edit', opp_id=opp.opp_id) }}"
+                     class="btn-secondary"
+                     style="padding:.3rem .65rem; font-size:.82rem; white-space:nowrap;"
+                     id="companyDashboardEditOppBtn-{{ opp.opp_id }}">
+                    ✏️ Edit
+                  </a>
+                  <a href="{{ url_for('opportunity_applicants', opp_id=opp.opp_id) }}"
+                     class="btn-secondary"
+                     style="padding:.3rem .65rem; font-size:.82rem; white-space:nowrap;"
+                     id="companyDashboardViewApplicantsBtn-{{ opp.opp_id }}">
+                    👥 Applicants ({{ opp.applicant_count }})
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state" style="text-align:center; padding:2.5rem 1.5rem;">
+        <div style="font-size:2.5rem; margin-bottom:.6rem;">📢</div>
+        <p style="font-weight:600; color:var(--ink); font-size:1.05rem; margin-bottom:.3rem;">No active job postings found.</p>
+        <p style="color:var(--ink-muted); font-size:.88rem;">There are currently no active job postings registered under this company.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <!-- ── 2. Application Decisions ──────────────────────── -->
+    <section class="card-section" id="decisions-section" style="margin-bottom: 2rem; scroll-margin-top: 1rem; border-top: 3px solid var(--cobalt);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; flex-wrap:wrap; gap:.75rem;">
+        <div>
+          <h2 class="section-title" style="margin-bottom:.25rem;">
+            ⚖️ Application Decisions <span class="count-badge" id="decisionsCountBadge">{{ applications|length }}</span>
+          </h2>
+          <p style="color:var(--ink-muted); font-size:.88rem; margin:0;">
+            Review student candidates, manage application statuses, schedule rounds, or make final hiring decisions.
+          </p>
+        </div>
+      </div>
+
+      {% if applications %}
+      <div class="table-wrapper">
+        <table class="data-table" id="decisionsTable">
+          <thead>
+            <tr>
+              <th>Appl ID</th>
+              <th>Applicant Name</th>
+              <th>Email</th>
+              <th>Department & CGPA</th>
+              <th>Opportunity Applied</th>
+              <th>Applied Date</th>
+              <th>Current Status</th>
+              <th>Recruitment Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for app in applications %}
+            <tr id="decisionRow-{{ app.appl_id }}">
+              <td class="td-id"><code>{{ app.appl_id }}</code></td>
+              <td>
+                <a href="{{ url_for('student_detail', student_id=app.student_id) }}" style="font-weight:600; color:var(--cobalt); text-decoration:none;" title="View student profile">
+                  {{ app.student_name }}
+                </a>
+                <br>
+                <span style="font-size:.75rem; color:var(--ink-muted);">ID: <code>{{ app.student_id }}</code></span>
+              </td>
+              <td class="td-email">{{ app.student_email }}</td>
+              <td>
+                <span style="font-weight:500;">{{ app.dept_name or '—' }}</span><br>
+                <span class="cgpa-badge" style="font-size:.78rem;">CGPA {{ app.cgpa }}</span>
+              </td>
+              <td>
+                <strong>{{ app.opp_title }}</strong><br>
+                <span class="type-badge type-badge--{{ app.opp_type.lower() }}" style="font-size:.72rem; padding:.1rem .4rem;">{{ app.opp_type }}</span>
+              </td>
+              <td class="td-deadline">{{ app.appl_date }}</td>
+              <td>
+                <span class="status-badge status-badge--{{ app.interview_status.lower() }}" id="statusBadge-{{ app.appl_id }}">
+                  {{ app.interview_status }}
+                </span>
+                {% if app.interview_rd %}
+                  <div style="font-size:.75rem; color:var(--ink-muted); margin-top:.2rem;">Round {{ app.interview_rd }}</div>
+                {% endif %}
+              </td>
+              <td class="td-actions" style="white-space:nowrap;">
+                <div style="display:flex; gap:.35rem; align-items:center; flex-wrap:wrap;">
+                  <!-- 1. Review Profile -->
+                  <a href="{{ url_for('student_detail', student_id=app.student_id) }}"
+                     class="btn-secondary" style="padding:.24rem .55rem; font-size:.78rem;" title="Review student profile and skills" id="reviewBtn-{{ app.appl_id }}">
+                    👁 Review
+                  </a>
+
+                  <!-- 2. Move to In Process -->
+                  <form method="POST" action="{{ url_for('application_set_status', appl_id=app.appl_id) }}" style="display:inline;">
+                    <input type="hidden" name="status" value="IN_PROCESS">
+                    <input type="hidden" name="redirect_to" value="{{ url_for('company_dashboard') }}#decisions-section">
+                    <button type="submit" class="btn-secondary" style="padding:.24rem .55rem; font-size:.78rem; background:#e0e7ff; color:#3730a3; border-color:#c7d2fe;" title="Keep candidate application in process" id="inProcessBtn-{{ app.appl_id }}">
+                      ⏳ In Process
+                    </button>
+                  </form>
+
+                  <!-- 3. Schedule Interview Toggle -->
+                  <button type="button" class="btn-secondary" onclick="toggleScheduleRow('{{ app.appl_id }}')" style="padding:.24rem .55rem; font-size:.78rem; background:var(--cobalt-pale); color:var(--cobalt-dark); border-color:var(--cobalt-light);" title="Schedule interview date, time, and round" id="scheduleBtn-{{ app.appl_id }}">
+                    📅 Schedule
+                  </button>
+
+                  <!-- 4. Accept / Select Candidate -->
+                  <form method="POST" action="{{ url_for('application_select_candidate', appl_id=app.appl_id) }}" style="display:inline;" onsubmit="return confirm('Accept and select {{ app.student_name|e }} for {{ app.opp_title|e }}? This will place the candidate.');">
+                    <input type="hidden" name="redirect_to" value="{{ url_for('company_dashboard') }}#placements-section">
+                    <button type="submit" class="btn-primary" style="padding:.24rem .55rem; font-size:.78rem; background:#059669; border-color:#059669;" title="Accept and select candidate for placement" id="selectBtn-{{ app.appl_id }}">
+                      ✓ Accept
+                    </button>
+                  </form>
+
+                  <!-- 5. Reject Application -->
+                  <form method="POST" action="{{ url_for('application_set_status', appl_id=app.appl_id) }}" style="display:inline;" onsubmit="return confirm('Reject application for {{ app.student_name|e }}?');">
+                    <input type="hidden" name="status" value="REJECTED">
+                    <input type="hidden" name="redirect_to" value="{{ url_for('company_dashboard') }}#decisions-section">
+                    <button type="submit" class="btn-danger" style="padding:.24rem .55rem; font-size:.78rem;" title="Reject this application" id="rejectBtn-{{ app.appl_id }}">
+                      ✕ Reject
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Inline Interview Scheduling Form -->
+            <tr id="scheduleRow-{{ app.appl_id }}" class="schedule-expand-row" style="display:none; background: var(--ivory-dark); border-top: 1px dashed var(--ivory-mid);">
+              <td colspan="8" style="padding: 1.1rem 1.4rem;">
+                <div style="font-weight:600; font-size:.85rem; color:var(--ink); margin-bottom:.6rem;">
+                  📅 Schedule Interview for <strong>{{ app.student_name }}</strong> — <em>{{ app.opp_title }}</em>
+                </div>
+                <form method="POST" action="{{ url_for('application_schedule_interview', appl_id=app.appl_id) }}" style="display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap;">
+                  <input type="hidden" name="redirect_to" value="{{ url_for('company_dashboard') }}#interviews-section">
+                  <div class="field-group" style="margin:0;">
+                    <label class="field-label" style="font-size:.75rem;">Interview Date *</label>
+                    <input type="date" name="interview_date" class="field-input" required style="padding:.35rem .6rem; font-size:.85rem;" id="intDate-{{ app.appl_id }}">
+                  </div>
+                  <div class="field-group" style="margin:0;">
+                    <label class="field-label" style="font-size:.75rem;">Interview Time</label>
+                    <input type="time" name="interview_time" class="field-input" value="10:00" style="padding:.35rem .6rem; font-size:.85rem;" id="intTime-{{ app.appl_id }}">
+                  </div>
+                  <div class="field-group" style="margin:0;">
+                    <label class="field-label" style="font-size:.75rem;">Round Number</label>
+                    <input type="number" name="interview_rd" class="field-input" value="{{ (app.interview_rd or 0) + 1 }}" min="1" max="10" style="width:90px; padding:.35rem .6rem; font-size:.85rem;" id="intRound-{{ app.appl_id }}">
+                  </div>
+                  <div style="display:flex; gap:.5rem;">
+                    <button type="submit" class="btn-primary" style="padding:.45rem 1rem; font-size:.85rem;" id="saveScheduleBtn-{{ app.appl_id }}">
+                      Confirm Schedule
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="toggleScheduleRow('{{ app.appl_id }}')" style="padding:.45rem .8rem; font-size:.85rem;">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state" style="text-align:center; padding:2.5rem 1.5rem;">
+        <div style="font-size:2.5rem; margin-bottom:.6rem;">📭</div>
+        <p style="font-weight:600; color:var(--ink); font-size:1.05rem; margin-bottom:.3rem;">No applications received yet.</p>
+        <p style="color:var(--ink-muted); font-size:.88rem;">When students apply to your job postings, their records and management actions will appear here.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <!-- ── 3. Interviews and Selections ──────────────────── -->
+    <section class="card-section" id="interviews-section" style="margin-bottom: 2rem; scroll-margin-top: 1rem; border-top: 3px solid #0284c7;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; flex-wrap:wrap; gap:.75rem;">
+        <div>
+          <h2 class="section-title" style="margin-bottom:.25rem;">
+            🎯 Interviews and Selections <span class="count-badge" id="interviewsCountBadge">{{ interviews|length }}</span>
+          </h2>
+          <p style="color:var(--ink-muted); font-size:.88rem; margin:0;">
+            Track scheduled interview rounds, assess candidates, and record final interview outcomes.
+          </p>
+        </div>
+      </div>
+
+      {% if interviews %}
+      <div class="table-wrapper">
+        <table class="data-table" id="interviewsTable">
+          <thead>
+            <tr>
+              <th>Interview ID</th>
+              <th>Candidate</th>
+              <th>Role / Posting</th>
+              <th>Round</th>
+              <th>Scheduled Date & Time</th>
+              <th>Interview Status</th>
+              <th>Record Outcome / Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for intv in interviews %}
+            <tr id="interviewRow-{{ intv.interview_id }}">
+              <td class="td-id"><code>{{ intv.interview_id }}</code></td>
+              <td>
+                <a href="{{ url_for('student_detail', student_id=intv.student_id) }}" style="font-weight:600; color:var(--cobalt); text-decoration:none;">
+                  {{ intv.student_name }}
+                </a>
+                <br>
+                <span style="font-size:.75rem; color:var(--ink-muted);">{{ intv.student_email }}</span>
+              </td>
+              <td>
+                <strong>{{ intv.opp_title }}</strong>
+                <br>
+                <span class="type-badge type-badge--{{ intv.opp_type.lower() }}" style="font-size:.72rem; padding:.1rem .4rem;">{{ intv.opp_type }}</span>
+              </td>
+              <td>
+                <span style="font-weight:600; color:var(--ink);">Round {{ intv.interview_rd or 1 }}</span>
+              </td>
+              <td class="td-deadline">
+                {% if intv.interview_date %}
+                  <strong style="color:var(--ink);">{{ intv.interview_date.strftime('%d %b %Y, %I:%M %p') }}</strong>
+                {% else %}
+                  <span style="color:var(--ink-muted); font-style:italic;">Date pending</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="status-badge status-badge--{{ intv.interview_status.lower() }}" id="intvStatusBadge-{{ intv.interview_id }}">
+                  {{ intv.interview_status }}
+                </span>
+              </td>
+              <td class="td-actions" style="white-space:nowrap;">
+                <div style="display:flex; gap:.35rem; align-items:center; flex-wrap:wrap;">
+                  {% if intv.interview_status == 'CLEARED' %}
+                    <span style="color:#059669; font-weight:600; font-size:.82rem;">✅ Cleared & Selected</span>
+                  {% elif intv.interview_status == 'REJECTED' %}
+                    <span style="color:#c0392b; font-weight:600; font-size:.82rem;">❌ Rejected</span>
+                  {% else %}
+                    <!-- Clear & Place candidate -->
+                    <form method="POST" action="{{ url_for('application_select_candidate', appl_id=intv.appl_id) }}" style="display:inline;" onsubmit="return confirm('Pass interview and select {{ intv.student_name|e }}? This will place the candidate.');">
+                      <input type="hidden" name="redirect_to" value="{{ url_for('company_dashboard') }}#placements-section">
+                      <button type="submit" class="btn-primary" style="padding:.24rem .55rem; font-size:.78rem; background:#059669; border-color:#059669;" title="Candidate cleared interview — select and place" id="intvSelectBtn-{{ intv.interview_id }}">
+                        ✓ Select (Pass)
+                      </button>
+                    </form>
+
+                    <!-- Reject candidate -->
+                    <form method="POST" action="{{ url_for('application_set_status', appl_id=intv.appl_id) }}" style="display:inline;" onsubmit="return confirm('Mark candidate as rejected after interview?');">
+                      <input type="hidden" name="status" value="REJECTED">
+                      <input type="hidden" name="redirect_to" value="{{ url_for('company_dashboard') }}#interviews-section">
+                      <button type="submit" class="btn-danger" style="padding:.24rem .55rem; font-size:.78rem;" title="Candidate rejected" id="intvRejectBtn-{{ intv.interview_id }}">
+                        ✕ Reject
+                      </button>
+                    </form>
+
+                    <!-- Next round / Reschedule toggle -->
+                    <button type="button" class="btn-secondary" onclick="toggleInterviewReschedule('{{ intv.interview_id }}')" style="padding:.24rem .55rem; font-size:.78rem;" title="Reschedule or schedule next round" id="rescheduleBtn-{{ intv.interview_id }}">
+                      🔄 Next Round
+                    </button>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+
+            <!-- Inline Reschedule / Next Round Form -->
+            <tr id="rescheduleRow-{{ intv.interview_id }}" class="schedule-expand-row" style="display:none; background: var(--ivory-dark); border-top: 1px dashed var(--ivory-mid);">
+              <td colspan="7" style="padding: 1rem 1.4rem;">
+                <div style="font-weight:600; font-size:.85rem; color:var(--ink); margin-bottom:.5rem;">
+                  🔄 Schedule Next Round / Reschedule for <strong>{{ intv.student_name }}</strong>
+                </div>
+                <form method="POST" action="{{ url_for('application_schedule_interview', appl_id=intv.appl_id) }}" style="display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap;">
+                  <input type="hidden" name="redirect_to" value="{{ url_for('company_dashboard') }}#interviews-section">
+                  <div class="field-group" style="margin:0;">
+                    <label class="field-label" style="font-size:.75rem;">Interview Date *</label>
+                    <input type="date" name="interview_date" class="field-input" required style="padding:.35rem .6rem; font-size:.85rem;" id="reschedDate-{{ intv.interview_id }}">
+                  </div>
+                  <div class="field-group" style="margin:0;">
+                    <label class="field-label" style="font-size:.75rem;">Interview Time</label>
+                    <input type="time" name="interview_time" class="field-input" value="10:00" style="padding:.35rem .6rem; font-size:.85rem;">
+                  </div>
+                  <div class="field-group" style="margin:0;">
+                    <label class="field-label" style="font-size:.75rem;">Next Round #</label>
+                    <input type="number" name="interview_rd" class="field-input" value="{{ (intv.interview_rd or 1) + 1 }}" min="1" max="10" style="width:90px; padding:.35rem .6rem; font-size:.85rem;">
+                  </div>
+                  <div style="display:flex; gap:.5rem;">
+                    <button type="submit" class="btn-primary" style="padding:.45rem 1rem; font-size:.85rem;">
+                      Save Schedule
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="toggleInterviewReschedule('{{ intv.interview_id }}')" style="padding:.45rem .8rem; font-size:.85rem;">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state" style="text-align:center; padding:2.5rem 1.5rem;">
+        <div style="font-size:2.5rem; margin-bottom:.6rem;">🎯</div>
+        <p style="font-weight:600; color:var(--ink); font-size:1.05rem; margin-bottom:.3rem;">No interviews scheduled yet.</p>
+        <p style="color:var(--ink-muted); font-size:.88rem;">To schedule an interview, click <strong>📅 Schedule</strong> next to any applicant in the Application Decisions table above.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <!-- ── 4. Placed Students ────────────────────────────── -->
+    <section class="card-section" id="placements-section" style="margin-bottom: 2rem; scroll-margin-top: 1rem; border-top: 3px solid #059669;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+        <div>
+          <h2 class="section-title" style="margin-bottom:.25rem;">
+            ✅ Placed Students <span class="count-badge" id="placementsCountBadge">{{ placements|length }}</span>
+          </h2>
+          <p style="color:var(--ink-muted); font-size:.88rem; margin:0;">
+            Candidates successfully hired and placed with {{ company.company_name if company else 'your company' }}.
+          </p>
+        </div>
+      </div>
+
+      {% if placements %}
+      <div class="table-wrapper">
+        <table class="data-table" id="placementsTable">
+          <thead>
+            <tr>
+              <th>Placement ID</th>
+              <th>Student Name</th>
+              <th>Email</th>
+              <th>Job Role</th>
+              <th>Offered Package</th>
+              <th>Placed On</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pl in placements %}
+            <tr id="placementRow-{{ pl.plm_id }}">
+              <td class="td-id"><code>{{ pl.plm_id }}</code></td>
+              <td style="font-weight:600; color:var(--ink);">{{ pl.student_name }}</td>
+              <td class="td-email">{{ pl.student_email }}</td>
+              <td><strong>{{ pl.opp_title }}</strong></td>
+              <td style="color:#059669; font-weight:600;">
+                {% if pl.package %}₹{{ "{:,.0f}".format(pl.package) }}{% else %}—{% endif %}
+              </td>
+              <td class="td-deadline">{{ pl.plm_date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state" style="text-align:center; padding:2.5rem 1.5rem;">
+        <div style="font-size:2.5rem; margin-bottom:.6rem;">🎓</div>
+        <p style="font-weight:600; color:var(--ink); font-size:1.05rem; margin-bottom:.3rem;">No placed students yet.</p>
+        <p style="color:var(--ink-muted); font-size:.88rem;">Once candidates clear the interview process and are accepted, their confirmed placement records will appear here.</p>
+      </div>
+      {% endif %}
+    </section>
+
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function toggleScheduleRow(applId) {
+  var row = document.getElementById('scheduleRow-' + applId);
+  if (!row) return;
+  var isHidden = (row.style.display === 'none' || !row.style.display);
+  row.style.display = isHidden ? 'table-row' : 'none';
+  if (isHidden) {
+    var dateInput = document.getElementById('intDate-' + applId);
+    if (dateInput && !dateInput.value) {
+      var tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      dateInput.value = tomorrow.toISOString().split('T')[0];
+    }
+  }
+}
+
+function toggleInterviewReschedule(intId) {
+  var row = document.getElementById('rescheduleRow-' + intId);
+  if (!row) return;
+  var isHidden = (row.style.display === 'none' || !row.style.display);
+  row.style.display = isHidden ? 'table-row' : 'none';
+  if (isHidden) {
+    var dateInput = document.getElementById('reschedDate-' + intId);
+    if (dateInput && !dateInput.value) {
+      var tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 2);
+      dateInput.value = tomorrow.toISOString().split('T')[0];
+    }
+  }
+}
+</script>
+{% endblock %}

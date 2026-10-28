@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Applicants: {{ opportunity.opp_title }} — CampusConnect{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block body %}
+<div class="dashboard-layout">
+  {% include "_sidebar.html" %}
+
+  <main class="dashboard-main">
+    <header class="dashboard-topbar">
+      <div class="topbar-left">
+        <div style="display:flex; gap:.75rem; align-items:center; margin-bottom:.35rem;">
+          {% if session.get('role') == 'COMPANY' %}
+            <a href="{{ url_for('company_dashboard') }}" class="breadcrumb-back">← Company Dashboard</a>
+          {% else %}
+            <a href="{{ url_for('manage_companies') }}" class="breadcrumb-back">← All Companies</a>
+          {% endif %}
+          <span style="color:var(--ink-soft); font-size:.85rem;">/</span>
+          <a href="{{ url_for('company_detail', company_id=opportunity.company_id) }}" class="breadcrumb-back">🏢 {{ opportunity.company_name }}</a>
+        </div>
+        <h1 class="topbar-title" id="opportunityApplicantsTitle">
+          👥 Applicants: <span class="accent">{{ opportunity.opp_title }}</span>
+        </h1>
+        <p class="topbar-sub" id="opportunitySubtitle">
+          <strong>{{ opportunity.company_name }}</strong> ({{ opportunity.company_id }}) · Opp ID: <code>{{ opportunity.opp_id }}</code> · 📍 {{ opportunity.opp_locn or '—' }}
+        </p>
+      </div>
+      <div class="topbar-right" style="display:flex; gap:.75rem; align-items:center;">
+        <span class="type-badge type-badge--{{ opportunity.opp_type.lower() }}">{{ opportunity.opp_type }}</span>
+        <a href="{{ url_for('company_detail', company_id=opportunity.company_id) }}" class="btn-secondary">
+          🏢 View Company Profile
+        </a>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}{% for cat, msg in messages %}
+        <div class="alert alert--{{ cat }}">{{ msg }}</div>
+      {% endfor %}{% endif %}
+    {% endwith %}
+
+    <!-- ── Opportunity Switcher (If multiple postings exist) ── -->
+    {% if company_opportunities|length > 1 %}
+    <section class="card-section" style="padding: .85rem 1.25rem; margin-bottom: 1.5rem; background: #fff;" id="oppSwitcherSection">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.75rem;">
+        <span style="font-size:.85rem; font-weight:600; color:var(--ink-soft);">
+          🎯 Postings by {{ opportunity.company_name }}:
+        </span>
+        <div style="display:flex; gap:.5rem; flex-wrap:wrap;" id="oppSwitcherList">
+          {% for co in company_opportunities %}
+            <a href="{{ url_for('opportunity_applicants', opp_id=co.opp_id) }}"
+               class="btn-secondary"
+               id="switchOppBtn-{{ co.opp_id }}"
+               style="padding:.3rem .75rem; font-size:.82rem; {% if co.opp_id == opportunity.opp_id %}background:var(--cobalt); color:#fff; border-color:var(--cobalt); font-weight:600;{% endif %}">
+              {{ co.opp_title }} ({{ co.opp_id }}) · {{ co.applicant_count }} apps
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- ── Opportunity Key Specs ── -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-card-icon">👥</span>
+        <div>
+          <p class="stat-card-num" id="statApplicantCount">{{ applicants|length }}</p>
+          <p class="stat-card-lbl">Applicants</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">🎯</span>
+        <div>
+          <p class="stat-card-num">{{ opportunity.min_cgpa or '0.00' }}</p>
+          <p class="stat-card-lbl">Min CGPA Required</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">💼</span>
+        <div>
+          <p class="stat-card-num">
+            {% if opportunity.package %}₹{{ "{:,.0f}".format(opportunity.package) }}{% elif opportunity.stipend %}₹{{ "{:,.0f}".format(opportunity.stipend) }}/mo{% else %}—{% endif %}
+          </p>
+          <p class="stat-card-lbl">{{ 'Package' if opportunity.package else ('Stipend' if opportunity.stipend else 'Compensation') }}</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">📅</span>
+        <div>
+          <p class="stat-card-num" style="font-size:1.15rem;">{{ opportunity.deadline or 'Open' }}</p>
+          <p class="stat-card-lbl">Application Deadline</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Applicants Table with Management Actions ── -->
+    <section class="card-section" id="applicantsSection">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+        <h2 class="section-title" style="margin-bottom:0;">
+          📋 Student Applicants for {{ opportunity.opp_title }}
+          <span class="count-badge" id="applicantsBadge">{{ applicants|length }}</span>
+        </h2>
+      </div>
+
+      {% if applicants %}
+      <div class="table-wrapper">
+        <table class="data-table" id="applicantsTable">
+          <thead>
+            <tr>
+              <th>Appl ID</th>
+              <th>Student</th>
+              <th>Email</th>
+              <th>Department</th>
+              <th>CGPA</th>
+              <th>Applied Date</th>
+              <th>Status</th>
+              <th>Interview Date & Round</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in applicants %}
+            <tr id="applicantRow-{{ a.appl_id }}">
+              <td class="td-id"><code>{{ a.appl_id }}</code></td>
+              <td>
+                <a href="{{ url_for('student_detail', student_id=a.student_id) }}" style="font-weight:600; color:var(--cobalt); text-decoration:none;">
+                  {{ a.student_name }}
+                </a>
+                <br><span style="font-size:.75rem; color:var(--ink-muted);">ID: {{ a.student_id }}</span>
+              </td>
+              <td class="td-email">{{ a.student_email }}</td>
+              <td>{{ a.dept_name or '—' }}</td>
+              <td><span class="cgpa-badge">{{ a.cgpa }}</span></td>
+              <td class="td-deadline">{{ a.appl_date }}</td>
+              <td>
+                <span class="status-badge status-badge--{{ a.interview_status.lower() }}">
+                  {{ a.interview_status }}
+                </span>
+              </td>
+              <td>
+                {% if a.interview_date %}
+                  <strong>{{ a.interview_date.strftime('%d %b %Y, %I:%M %p') }}</strong><br>
+                  <span style="font-size:.78rem; color:var(--ink-muted);">Round {{ a.interview_rd or 1 }}</span>
+                {% elif a.interview_rd %}
+                  Round {{ a.interview_rd }}
+                {% else %}
+                  <span style="color:var(--ink-muted);">—</span>
+                {% endif %}
+              </td>
+              <td class="td-actions" style="white-space: nowrap;">
+                <div style="display:flex; gap:.35rem; align-items:center; flex-wrap:wrap;">
+                  <!-- Review profile -->
+                  <a href="{{ url_for('student_detail', student_id=a.student_id) }}"
+                     class="btn-secondary" style="padding:.2rem .5rem; font-size:.78rem;" title="Review student profile and skills" id="reviewBtn-{{ a.appl_id }}">
+                    👁 Review
+                  </a>
+
+                  <!-- Keep in Process -->
+                  <form method="POST" action="{{ url_for('application_set_status', appl_id=a.appl_id) }}" style="display:inline;">
+                    <input type="hidden" name="status" value="IN_PROCESS">
+                    <input type="hidden" name="redirect_to" value="{{ request.url }}">
+                    <button type="submit" class="btn-secondary" style="padding:.2rem .5rem; font-size:.78rem; background:#e0e7ff; color:#3730a3; border-color:#c7d2fe;" title="Keep candidate application in process" id="inProcessBtn-{{ a.appl_id }}">
+                      ⏳ In Process
+                    </button>
+                  </form>
+
+                  <!-- Schedule Interview Toggle -->
+                  <button type="button" class="btn-secondary" onclick="toggleSchedule('{{ a.appl_id }}')" style="padding:.2rem .5rem; font-size:.78rem; background:var(--cobalt-pale); color:var(--cobalt-dark); border-color:var(--cobalt-light);" title="Schedule interview date, time, and round" id="scheduleBtn-{{ a.appl_id }}">
+                    📅 Schedule
+                  </button>
+
+                  <!-- Select / Place Candidate -->
+                  <form method="POST" action="{{ url_for('application_select_candidate', appl_id=a.appl_id) }}" style="display:inline;" onsubmit="return confirm('Accept and place {{ a.student_name|e }} for {{ opportunity.opp_title|e }}?');">
+                    <input type="hidden" name="redirect_to" value="{{ request.url }}">
+                    <button type="submit" class="btn-primary" style="padding:.2rem .5rem; font-size:.78rem; background:#059669; border-color:#059669;" title="Select and place candidate" id="selectBtn-{{ a.appl_id }}">
+                      ✓ Select
+                    </button>
+                  </form>
+
+                  <!-- Reject Application -->
+                  <form method="POST" action="{{ url_for('application_set_status', appl_id=a.appl_id) }}" style="display:inline;" onsubmit="return confirm('Reject application for {{ a.student_name|e }}?');">
+                    <input type="hidden" name="status" value="REJECTED">
+                    <input type="hidden" name="redirect_to" value="{{ request.url }}">
+                    <button type="submit" class="btn-danger" style="padding:.2rem .5rem; font-size:.78rem;" title="Reject application" id="rejectBtn-{{ a.appl_id }}">
+                      ✕ Reject
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Expandable Inline Interview Scheduling Row -->
+            <tr id="scheduleRow-{{ a.appl_id }}" class="schedule-expand-row" style="display:none; background: var(--ivory-dark); border-top: 1px dashed var(--ivory-mid);">
+              <td colspan="9" style="padding: 1rem 1.25rem;">
+                <form method="POST" action="{{ url_for('application_schedule_interview', appl_id=a.appl_id) }}" style="display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap;">
+                  <input type="hidden" name="redirect_to" value="{{ request.url }}">
+                  <div class="field-group" style="margin:0;">
+                    <label class="field-label" style="font-size:.75rem;">Interview Date *</label>
+                    <input type="date" name="interview_date" class="field-input" required style="padding:.35rem .6rem; font-size:.85rem;" id="intDate-{{ a.appl_id }}">
+                  </div>
+                  <div class="field-group" style="margin:0;">
+                    <label class="field-label" style="font-size:.75rem;">Interview Time</label>
+                    <input type="time" name="interview_time" class="field-input" value="10:00" style="padding:.35rem .6rem; font-size:.85rem;" id="intTime-{{ a.appl_id }}">
+                  </div>
+                  <div class="field-group" style="margin:0;">
+                    <label class="field-label" style="font-size:.75rem;">Round Number</label>
+                    <input type="number" name="interview_rd" class="field-input" value="{{ (a.interview_rd or 0) + 1 }}" min="1" max="10" style="width:90px; padding:.35rem .6rem; font-size:.85rem;" id="intRound-{{ a.appl_id }}">
+                  </div>
+                  <div style="display:flex; gap:.5rem;">
+                    <button type="submit" class="btn-primary" style="padding:.45rem 1rem; font-size:.85rem;" id="saveScheduleBtn-{{ a.appl_id }}">
+                      Confirm Schedule
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="toggleSchedule('{{ a.appl_id }}')" style="padding:.45rem .8rem; font-size:.85rem;">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state" id="emptyApplicantsState" style="text-align:center; padding:3rem 1.5rem;">
+        <div style="font-size:2.8rem; margin-bottom:.8rem;">📭</div>
+        <p style="font-size:1.15rem; font-weight:600; color:var(--ink); margin-bottom:.4rem;">
+          No students have applied for this opportunity yet.
+        </p>
+        <p style="color:var(--ink-soft); font-size:.9rem; max-width:480px; margin:0 auto 1.5rem auto;">
+          There are currently no saved application records for <strong>{{ opportunity.opp_title }}</strong> at <strong>{{ opportunity.company_name }}</strong>.
+        </p>
+        <a href="{{ url_for('company_detail', company_id=opportunity.company_id) }}" class="btn-secondary">
+          ← Back to {{ opportunity.company_name }}
+        </a>
+      </div>
+      {% endif %}
+    </section>
+
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function toggleSchedule(applId) {
+  var row = document.getElementById('scheduleRow-' + applId);
+  if (!row) return;
+  row.style.display = (row.style.display === 'none' || row.style.display === '') ? 'table-row' : 'none';
+}
+</script>
+{% endblock %}

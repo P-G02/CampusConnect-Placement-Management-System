@@ -1,0 +1,156 @@
+<!-- Shared sidebar include — used by all dashboard & management pages -->
+<nav class="sidebar" id="sidebar" aria-label="Main navigation">
+  <div class="sidebar-logo">
+    <span class="logo-mark">C</span>
+    <span class="logo-text">Campus<strong>Connect</strong></span>
+  </div>
+
+  <ul class="sidebar-nav">
+    {% if session.get('role') == 'STUDENT' %}
+      <li>
+        <a href="{{ url_for('student_dashboard') }}"
+           class="nav-link {% if request.endpoint == 'student_dashboard' %}nav-link--active{% endif %}"
+           id="nav-student-dashboard">
+          📊 My Dashboard
+        </a>
+      </li>
+      {% if session.get('student_id') %}
+      <li>
+        <a href="{{ url_for('student_detail', student_id=session.get('student_id')) }}"
+           class="nav-link {% if request.endpoint == 'student_detail' and request.view_args.get('student_id') == session.get('student_id') %}nav-link--active{% endif %}"
+           id="nav-student-profile">
+          📋 My Profile and Skills
+        </a>
+      </li>
+      {% endif %}
+      <li>
+        <a href="{{ url_for('student_dashboard') }}#opportunities-section"
+           class="nav-link"
+           id="nav-student-browse">
+          🚀 Browse Opportunities
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('student_dashboard') }}#applications-section"
+           class="nav-link"
+           id="nav-student-applications">
+          📝 My Applications
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('student_dashboard') }}#placement-section"
+           class="nav-link"
+           id="nav-student-interviews">
+          🎯 My Interviews and Placement Status
+        </a>
+      </li>
+
+    {% elif session.get('role') == 'COMPANY' %}
+      <li>
+        <a href="{{ url_for('company_dashboard') }}"
+           class="nav-link {% if request.endpoint == 'company_dashboard' %}nav-link--active{% endif %}"
+           id="nav-company-dashboard">
+          📊 My Dashboard
+        </a>
+      </li>
+      {% if session.get('company_id') %}
+      <li>
+        <a href="{{ url_for('company_detail', company_id=session.get('company_id')) }}"
+           class="nav-link {% if request.endpoint == 'company_detail' and request.view_args.get('company_id') == session.get('company_id') %}nav-link--active{% endif %}"
+           id="nav-company-profile">
+          🏢 Company Profile
+        </a>
+      </li>
+      {% endif %}
+      <li>
+        <a href="{{ url_for('company_dashboard') }}#postings-section"
+           class="nav-link"
+           id="nav-company-postings">
+          📢 Job Postings
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('company_dashboard') }}#decisions-section"
+           class="nav-link"
+           id="nav-company-decisions">
+          ⚖️ Application Decisions
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('company_dashboard') }}#interviews-section"
+           class="nav-link"
+           id="nav-company-interviews">
+          🎯 Interviews and Selections
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('company_dashboard') }}#placements-section"
+           class="nav-link"
+           id="nav-company-placements">
+          ✅ Placed Students
+        </a>
+      </li>
+
+    {% elif session.get('role') == 'ADMINISTRATOR' %}
+      <li>
+        <a href="{{ url_for('admin_dashboard') }}"
+           class="nav-link {% if request.endpoint == 'admin_dashboard' %}nav-link--active{% endif %}"
+           id="nav-admin-dashboard">
+          📊 Dashboard and Reports
+        </a>
+      </li>
+      <li class="nav-section-label">Management</li>
+      <li>
+        <a href="{{ url_for('manage_students') }}"
+           class="nav-link {% if 'student' in request.endpoint and 'dashboard' not in request.endpoint %}nav-link--active{% endif %}"
+           id="nav-admin-students">
+          🎓 Manage Students
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('manage_companies') }}"
+           class="nav-link {% if 'compan' in request.endpoint and 'dashboard' not in request.endpoint %}nav-link--active{% endif %}"
+           id="nav-admin-companies">
+          🏢 Manage Companies
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('manage_opportunities') }}"
+           class="nav-link {% if request.endpoint == 'manage_opportunities' %}nav-link--active{% endif %}"
+           id="nav-admin-opportunities">
+          📢 Manage Opportunities
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('manage_applications') }}"
+           class="nav-link {% if request.endpoint == 'manage_applications' %}nav-link--active{% endif %}"
+           id="nav-admin-applications">
+          📝 Manage Applications
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('manage_interviews_placements') }}"
+           class="nav-link {% if request.endpoint == 'manage_interviews_placements' %}nav-link--active{% endif %}"
+           id="nav-admin-interviews">
+          🎯 Manage Interviews and Placements
+        </a>
+      </li>
+    {% endif %}
+  </ul>
+
+  <div class="sidebar-user">
+    <div class="sidebar-user-info">
+      <span class="sidebar-user-name">{{ session.get('display_name', 'User') }}</span>
+      <span class="sidebar-user-role">
+        {{ session.get('role', '') | title }}
+        {% if is_demo_user %} · <span style="color:#7ba3ff;font-weight:700;">DEMO</span>{% endif %}
+      </span>
+    </div>
+  </div>
+
+  <div class="sidebar-bottom">
+    <form method="POST" action="{{ url_for('logout') }}">
+      <button type="submit" class="btn-logout" id="logoutBtn">⏻ Logout</button>
+    </form>
+  </div>
+</nav>

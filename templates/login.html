@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In — CampusConnect{% endblock %}
+{% block description %}Log in to CampusConnect, your campus placement management portal.{% endblock %}
+{% block body_class %}login-page{% endblock %}
+
+{% block body %}
+<div class="login-split">
+
+  <!-- ── Left Brand Panel ─────────────────────────────────── -->
+  <aside class="login-brand" aria-hidden="true">
+    <div class="brand-inner">
+      <div class="brand-logo">
+        <span class="logo-mark">C</span>
+        <span class="logo-text">Campus<strong>Connect</strong></span>
+      </div>
+      <blockquote class="brand-quote">
+        "Bridging ambition<br>with opportunity."
+      </blockquote>
+      <div class="brand-stats">
+        <div class="stat"><span class="stat-num">12+</span><span class="stat-lbl">Students</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><span class="stat-num">10+</span><span class="stat-lbl">Companies</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><span class="stat-num">11+</span><span class="stat-lbl">Openings</span></div>
+      </div>
+      <div class="brand-orb brand-orb--1"></div>
+      <div class="brand-orb brand-orb--2"></div>
+    </div>
+  </aside>
+
+  <!-- ── Right Form Panel ──────────────────────────────────── -->
+  <main class="login-form-panel">
+    <div class="login-card">
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert--{{ category }}" role="alert">
+              <span class="alert-icon">
+                {% if category == 'error' %}✕{% elif category == 'warning' %}⚠{% else %}ℹ{% endif %}
+              </span>
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <header class="login-header">
+        <h1 class="login-heading">Welcome back</h1>
+        <p class="login-subheading">Sign in to your placement portal</p>
+      </header>
+
+      <form id="loginForm" method="POST" action="{{ url_for('login') }}" novalidate>
+
+        <!-- Role Selector -->
+        <fieldset class="role-selector" id="roleFieldset">
+          <legend class="field-label">I am a</legend>
+          <div class="role-pills" style="grid-template-columns: repeat(3, 1fr); gap: .5rem;">
+            <label class="role-pill {% if prefill_role == 'STUDENT' %}role-pill--active{% endif %}" id="pill-student">
+              <input type="radio" name="role" value="STUDENT" id="role-student"
+                     {% if prefill_role == 'STUDENT' or not prefill_role %}checked{% endif %}
+                     required />
+              <span class="pill-icon">🎓</span>
+              <span class="pill-text">Student</span>
+            </label>
+            <label class="role-pill {% if prefill_role == 'COMPANY' %}role-pill--active{% endif %}" id="pill-company">
+              <input type="radio" name="role" value="COMPANY" id="role-company"
+                     {% if prefill_role == 'COMPANY' %}checked{% endif %}
+                     required />
+              <span class="pill-icon">🏢</span>
+              <span class="pill-text">Company</span>
+            </label>
+            <label class="role-pill {% if prefill_role == 'ADMINISTRATOR' %}role-pill--active{% endif %}" id="pill-administrator">
+              <input type="radio" name="role" value="ADMINISTRATOR" id="role-administrator"
+                     {% if prefill_role == 'ADMINISTRATOR' %}checked{% endif %}
+                     required />
+              <span class="pill-icon">🛡️</span>
+              <span class="pill-text">Admin</span>
+            </label>
+          </div>
+          <p class="field-error hidden" id="role-error">Please select a role.</p>
+        </fieldset>
+
+        <!-- Email -->
+        <div class="field-group">
+          <label class="field-label" for="email">Email address</label>
+          <div class="input-wrapper">
+            <span class="input-icon">✉</span>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              class="field-input"
+              placeholder="you@example.com"
+              value="{{ prefill_email or '' }}"
+              autocomplete="email"
+              required
+              aria-describedby="email-error"
+            />
+          </div>
+          <p class="field-error hidden" id="email-error">Please enter a valid email address.</p>
+        </div>
+
+        <!-- Password -->
+        <div class="field-group">
+          <label class="field-label" for="password">Password</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              class="field-input"
+              placeholder="••••••••"
+              autocomplete="current-password"
+              required
+              aria-describedby="password-error"
+            />
+            <button type="button" class="toggle-pw" id="togglePw" aria-label="Show or hide password">
+              <span id="eyeIcon">👁</span>
+            </button>
+          </div>
+          <p class="field-error hidden" id="password-error">Password is required.</p>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit" class="btn-login" id="loginBtn">
+          <span class="btn-text">Sign In</span>
+          <span class="btn-arrow">→</span>
+        </button>
+
+        <p class="login-footer-text">
+          Don't have an account?
+          <a href="#" class="link-cobalt">Contact your administrator</a>
+        </p>
+
+      </form>
+    </div>
+
+    <!-- Demo credentials hint -->
+    <div class="demo-hint">
+      <p class="demo-title">🔑 Demo Credentials</p>
+      <div class="demo-creds" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));">
+        <div class="demo-item">
+          <strong>Student</strong>
+          <code>srk_0211@gmail.com</code>
+          <code>SRKStudent@123</code>
+        </div>
+        <div class="demo-item">
+          <strong>Company</strong>
+          <code>tcs@careers.example.com</code>
+          <code>TCSCompany@123</code>
+        </div>
+        <div class="demo-item">
+          <strong>Administrator</strong>
+          <code>admin@campusconnect.local</code>
+          <code>CampusAdmin@123</code>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  // ── Role pill active state ────────────────────────────────────
+  document.querySelectorAll('input[name="role"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      document.querySelectorAll('.role-pill').forEach(p => p.classList.remove('role-pill--active'));
+      if (this.checked) this.closest('.role-pill').classList.add('role-pill--active');
+    });
+  });
+
+  // ── Show/hide password ────────────────────────────────────────
+  var pwInput = document.getElementById('password');
+  var toggleBtn = document.getElementById('togglePw');
+  var eyeIcon   = document.getElementById('eyeIcon');
+  toggleBtn.addEventListener('click', function () {
+    var isHidden = pwInput.type === 'password';
+    pwInput.type = isHidden ? 'text' : 'password';
+    eyeIcon.textContent = isHidden ? '🙈' : '👁';
+    toggleBtn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+  });
+
+  // ── Client-side inline validation ────────────────────────────
+  var form = document.getElementById('loginForm');
+  form.addEventListener('submit', function (e) {
+    var valid = true;
+
+    // Role
+    var roleChecked = document.querySelector('input[name="role"]:checked');
+    var roleErr = document.getElementById('role-error');
+    if (!roleChecked) {
+      roleErr.classList.remove('hidden');
+      valid = false;
+    } else {
+      roleErr.classList.add('hidden');
+    }
+
+    // Email
+    var emailInput = document.getElementById('email');
+    var emailErr   = document.getElementById('email-error');
+    var emailRe    = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailInput.value.trim() || !emailRe.test(emailInput.value.trim())) {
+      emailErr.classList.remove('hidden');
+      emailInput.classList.add('field-input--error');
+      valid = false;
+    } else {
+      emailErr.classList.add('hidden');
+      emailInput.classList.remove('field-input--error');
+    }
+
+    // Password
+    var pwErr = document.getElementById('password-error');
+    if (!pwInput.value) {
+      pwErr.classList.remove('hidden');
+      pwInput.classList.add('field-input--error');
+      valid = false;
+    } else {
+      pwErr.classList.add('hidden');
+      pwInput.classList.remove('field-input--error');
+    }
+
+    if (!valid) { e.preventDefault(); return; }
+
+    // Loading state
+    var btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    btn.querySelector('.btn-text').textContent = 'Signing in…';
+    btn.querySelector('.btn-arrow').textContent = '⏳';
+  });
+
+  // ── Demo credential autofill ──────────────────────────────────
+  document.querySelectorAll('.demo-item').forEach(function (item) {
+    item.style.cursor = 'pointer';
+    item.title = 'Click to autofill';
+    item.addEventListener('click', function () {
+      var codes  = item.querySelectorAll('code');
+      var strong = item.querySelector('strong');
+      document.getElementById('email').value = codes[0].textContent;
+      document.getElementById('password').value = codes[1].textContent;
+      var roleVal = strong.textContent.trim().toUpperCase();
+      var radio = document.getElementById('role-' + roleVal.toLowerCase());
+      if (radio) {
+        radio.checked = true;
+        radio.dispatchEvent(new Event('change'));
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

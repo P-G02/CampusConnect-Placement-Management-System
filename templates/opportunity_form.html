@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% set is_edit = (action == 'edit') %}
+{% block title %}{{ 'Edit Job Posting' if is_edit else 'Add Job Posting' }} — CampusConnect{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block body %}
+<div class="dashboard-layout">
+  {% include "_sidebar.html" %}
+
+  <main class="dashboard-main">
+    <header class="dashboard-topbar">
+      <div class="topbar-left">
+        {% if session.get('role') == 'COMPANY' %}
+          <a href="{{ url_for('company_dashboard') }}" class="breadcrumb-back">← Back to Company Dashboard</a>
+        {% elif session.get('role') == 'ADMINISTRATOR' %}
+          <a href="{{ url_for('manage_opportunities') }}" class="breadcrumb-back">← Back to Opportunities</a>
+        {% else %}
+          <a href="{{ url_for('student_dashboard') }}" class="breadcrumb-back">← Back to Student Dashboard</a>
+        {% endif %}
+        <h1 class="topbar-title">✏️ {{ 'Edit Job Posting' if is_edit else 'Add Job Posting' }}</h1>
+        {% if is_edit and opportunity %}
+          <p class="topbar-sub">Posting ID: <code>{{ opportunity.opp_id }}</code> · Company: <strong>{{ opportunity.company_name }}</strong> (<code>{{ opportunity.company_id }}</code>)</p>
+        {% endif %}
+      </div>
+      <div class="topbar-right">
+        {% if is_edit and opportunity %}
+          <a href="{{ url_for('opportunity_applicants', opp_id=opportunity.opp_id) }}" class="btn-secondary" style="font-size:.85rem; padding:.4rem .85rem;">
+            👥 View Applicants ({{ stats.applicants if stats else 0 }})
+          </a>
+        {% endif %}
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}{% for cat, msg in messages %}
+        <div class="alert alert--{{ cat }}">
+          <span class="alert-icon">{% if cat=='error' or cat=='danger' %}✕{% elif cat=='warning' %}⚠{% else %}✓{% endif %}</span>{{ msg }}
+        </div>
+      {% endfor %}{% endif %}
+    {% endwith %}
+
+    {% if is_edit and stats %}
+    <!-- Pipeline Status Card -->
+    <div class="stats-row" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 1.5rem;">
+      <div class="stat-card">
+        <span class="stat-card-icon">👥</span>
+        <div>
+          <p class="stat-card-num">{{ stats.applicants }}</p>
+          <p class="stat-card-lbl">Total Applicants</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">🎯</span>
+        <div>
+          <p class="stat-card-num">{{ stats.interviews }}</p>
+          <p class="stat-card-lbl">Interviews Conducted</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">✅</span>
+        <div>
+          <p class="stat-card-num">{{ stats.placed }}</p>
+          <p class="stat-card-lbl">Candidates Placed</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">📢</span>
+        <div>
+          <p class="stat-card-num">{{ opportunity.openings or 5 }}</p>
+          <p class="stat-card-lbl">Current Openings</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <section class="card-section form-card">
+      <div style="margin-bottom:1.25rem;">
+        <h2 class="section-title" style="margin-bottom:.3rem;">Recruitment Opening Details</h2>
+        <p style="color:var(--ink-muted); font-size:.88rem; margin:0;">
+          Update job specifications, location, remuneration, eligibility criteria, and openings. 
+          <em>Existing candidate applications and interview records will remain completely intact.</em>
+        </p>
+      </div>
+
+      <form method="POST"
+            action="{{ url_for('opportunity_edit', opp_id=opportunity.opp_id) if is_edit else '#' }}"
+            novalidate id="opportunityForm">
+
+        <div class="form-grid">
+
+          <!-- Opp ID (Readonly) -->
+          <div class="field-group">
+            <label class="field-label" for="f_opp_id">Opportunity ID</label>
+            <input type="text" id="f_opp_id" class="field-input"
+                   value="{{ opportunity.opp_id if opportunity else '' }}"
+                   readonly disabled style="background:var(--bg-subtle, #f5f5f7); color:var(--ink-muted);" />
+            <p class="field-hint">Unique database identifier (cannot be modified).</p>
+          </div>
+
+          <!-- Job Title -->
+          <div class="field-group">
+            <label class="field-label" for="f_opp_title">Job / Role Title *</label>
+            <input type="text" id="f_opp_title" name="opp_title" class="field-input"
+                   placeholder="e.g. Software Development Engineer"
+                   value="{{ opportunity.opp_title if opportunity else '' }}"
+                   required maxlength="50" />
+            <p class="field-hint">Maximum 50 characters.</p>
+          </div>
+
+          <!-- Opportunity Type -->
+          <div class="field-group">
+            <label class="field-label" for="f_opp_type">Opportunity Type *</label>
+            <select id="f_opp_type" name="opp_type" class="filter-select field-input" required style="width:100%;">
+              <option value="JOB" {% if opportunity and opportunity.opp_type == 'JOB' %}selected{% endif %}>JOB (Full-Time)</option>
+              <option value="INTERNSHIP" {% if opportunity and opportunity.opp_type == 'INTERNSHIP' %}selected{% endif %}>INTERNSHIP</option>
+            </select>
+          </div>
+
+          <!-- Number of Openings -->
+          <div class="field-group">
+            <label class="field-label" for="f_openings">Number of Openings *</label>
+            <input type="number" id="f_openings" name="openings" class="field-input"
+                   placeholder="e.g. 5"
+                   value="{{ opportunity.openings if opportunity and opportunity.openings is not none else 5 }}"
+                   required min="1" step="1" />
+            <p class="field-hint">Must be a positive integer (&gt; 0). Decreasing openings does not delete existing applicants or placements.</p>
+          </div>
+
+          <!-- Location -->
+          <div class="field-group">
+            <label class="field-label" for="f_opp_locn">Job Location</label>
+            <input type="text" id="f_opp_locn" name="opp_locn" class="field-input"
+                   placeholder="e.g. Bengaluru, Mumbai, Hybrid"
+                   value="{{ opportunity.opp_locn if opportunity and opportunity.opp_locn else '' }}"
+                   maxlength="50" />
+          </div>
+
+          <!-- Package (Annual CTC) -->
+          <div class="field-group">
+            <label class="field-label" for="f_package">Annual Package (₹ INR)</label>
+            <input type="number" id="f_package" name="package" class="field-input"
+                   placeholder="e.g. 600000"
+                   value="{{ "{:.0f}".format(opportunity.package) if opportunity and opportunity.package is not none else '' }}"
+                   min="0" step="1000" />
+            <p class="field-hint">Annual CTC in rupees (for full-time roles).</p>
+          </div>
+
+          <!-- Stipend (Monthly) -->
+          <div class="field-group">
+            <label class="field-label" for="f_stipend">Monthly Stipend (₹ INR)</label>
+            <input type="number" id="f_stipend" name="stipend" class="field-input"
+                   placeholder="e.g. 25000"
+                   value="{{ "{:.0f}".format(opportunity.stipend) if opportunity and opportunity.stipend is not none else '' }}"
+                   min="0" step="500" />
+            <p class="field-hint">Monthly stipend in rupees (for internships).</p>
+          </div>
+
+          <!-- Minimum CGPA -->
+          <div class="field-group">
+            <label class="field-label" for="f_min_cgpa">Minimum CGPA Criteria *</label>
+            <input type="number" id="f_min_cgpa" name="min_cgpa" class="field-input"
+                   placeholder="e.g. 7.60"
+                   value="{{ opportunity.min_cgpa if opportunity and opportunity.min_cgpa is not none else '7.60' }}"
+                   required min="7.51" max="10.00" step="0.01" />
+            <p class="field-hint">Must be between 7.51 and 10.00 per campus placement regulations.</p>
+          </div>
+
+          <!-- Application Deadline -->
+          <div class="field-group">
+            <label class="field-label" for="f_deadline">Application Deadline *</label>
+            <input type="date" id="f_deadline" name="deadline" class="field-input"
+                   value="{{ opportunity.deadline if opportunity and opportunity.deadline else '' }}"
+                   required />
+            <p class="field-hint">Students can browse and apply until 11:59 PM on this date.</p>
+          </div>
+
+        </div>
+
+        <div class="form-actions" style="margin-top:2rem; display:flex; gap:1rem; align-items:center;">
+          <button type="submit" class="btn-primary" id="saveOpportunityBtn">
+            💾 Save Changes
+          </button>
+          {% if session.get('role') == 'COMPANY' %}
+            <a href="{{ url_for('company_dashboard') }}" class="btn-secondary">Cancel</a>
+          {% else %}
+            <a href="{{ url_for('manage_opportunities') }}" class="btn-secondary">Cancel</a>
+          {% endif %}
+        </div>
+
+      </form>
+    </section>
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.getElementById('opportunityForm').addEventListener('submit', function(e) {
+  var btn = document.getElementById('saveOpportunityBtn');
+  var openings = parseInt(document.getElementById('f_openings').value, 10);
+  if (isNaN(openings) || openings <= 0) {
+    e.preventDefault();
+    alert('Please enter a valid positive integer for Number of Openings.');
+    return false;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+});
+</script>
+{% endblock %}

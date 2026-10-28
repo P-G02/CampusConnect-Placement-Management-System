@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Student Management — CampusConnect{% endblock %}
+{% block description %}View and manage all registered students.{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block body %}
+<div class="dashboard-layout">
+  {% include "_sidebar.html" %}
+
+  <main class="dashboard-main">
+    <header class="dashboard-topbar">
+      <div class="topbar-left">
+        <h1 class="topbar-title">🎓 Student Management</h1>
+        <p class="topbar-sub">All students from the <code>student</code> table &mdash;
+          <strong>{{ total }}</strong> record{{ 's' if total != 1 else '' }} found
+        </p>
+      </div>
+      <div class="topbar-right">
+        <a href="{{ url_for('student_new') }}" class="btn-primary" id="addStudentBtn">
+          + Add Student
+        </a>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}{% for cat, msg in messages %}
+        <div class="alert alert--{{ cat }}"><span class="alert-icon">{% if cat=='error' %}✕{% elif cat=='success' %}✓{% elif cat=='info' %}ℹ{% else %}⚠{% endif %}</span>{{ msg }}</div>
+      {% endfor %}{% endif %}
+    {% endwith %}
+
+    <!-- ── Pending Delete Confirmation (When dependencies detected) ── -->
+    {% if session.get('pending_delete_student_id') %}
+    <div class="alert alert--warning" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;" id="pendingDeleteAlert">
+      <div>
+        <strong>⚠️ Deletion Confirmation:</strong>
+        Student <strong>{{ session.get('pending_delete_student_id') }}</strong> has associated records:
+        <em>{{ session.get('pending_delete_deps') }}</em>.
+        Confirm removing this test student and cleaning up these associated records?
+      </div>
+      <div style="display:flex; gap:.5rem;">
+        <form method="POST" action="{{ url_for('student_delete', student_id=session.get('pending_delete_student_id')) }}">
+          <input type="hidden" name="confirm_cleanup" value="1">
+          <button type="submit" class="btn-danger" style="padding:.4rem .9rem; font-size:.85rem;" id="confirmCleanupBtn">
+            🗑 Confirm Cleanup & Delete
+          </button>
+        </form>
+        <a href="{{ url_for('cancel_pending_delete') }}" class="btn-secondary" style="padding:.4rem .9rem; font-size:.85rem;" id="cancelCleanupBtn">
+          Cancel
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Search / Filter bar ── -->
+    <form method="GET" action="{{ url_for('manage_students') }}" class="filter-bar" id="studentFilterForm">
+      <div class="filter-group">
+        <input type="text" name="q" id="studentSearch" class="filter-input"
+               placeholder="Search by name, email or ID…"
+               value="{{ search }}" />
+      </div>
+      <div class="filter-group">
+        <select name="dept" id="deptFilter" class="filter-select">
+          <option value="">All Departments</option>
+          {% for d in departments %}
+            <option value="{{ d.dept_id }}" {% if dept_filter == d.dept_id %}selected{% endif %}>
+              {{ d.dept_name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-filter">Filter</button>
+      {% if search or dept_filter %}
+        <a href="{{ url_for('manage_students') }}" class="btn-reset">Clear</a>
+      {% endif %}
+    </form>
+
+    <!-- ── Student Table ── -->
+    <section class="card-section" style="margin-top:0">
+      {% if students %}
+      <div class="table-wrapper">
+        <table class="data-table" id="studentTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Department</th>
+              <th>CGPA</th>
+              <th>Grad Year</th>
+              <th>Skills</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in students %}
+            <tr class="{% if session.get('student_id') == s.student_id %}row--own{% endif %}" id="student-row-{{ s.student_id }}">
+              <td class="td-id">
+                <a href="{{ url_for('student_detail', student_id=s.student_id) }}" class="link-id">
+                  {{ s.student_id }}
+                </a>
+              </td>
+              <td class="td-name">
+                {{ s.student_name }}
+                {% if session.get('student_id') == s.student_id %}
+                  <span class="badge-you">You</span>
+                {% endif %}
+              </td>
+              <td class="td-email">{{ s.student_email or '—' }}</td>
+              <td>{{ s.student_phone or '—' }}</td>
+              <td>{{ s.dept_name }}</td>
+              <td><span class="cgpa-badge">{{ s.cgpa }}</span></td>
+              <td>{{ s.graduation_yr }}</td>
+              <td class="td-skills" style="max-width: 220px;">
+                {% if s.skill_names %}
+                  <div class="skill-tags" style="gap: .25rem; margin-top: 0;">
+                    {% for sk_name in s.skill_names.split(', ') %}
+                      <span class="skill-tag" style="font-size: .72rem; padding: .15rem .45rem;">{{ sk_name }}</span>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <span style="color: var(--ink-muted, #94a3b8); font-size: .8rem;">—</span>
+                {% endif %}
+              </td>
+              <td class="td-actions">
+                <a href="{{ url_for('student_detail', student_id=s.student_id) }}"
+                   class="action-btn action-btn--view" title="View profile" id="viewBtn-{{ s.student_id }}">👁</a>
+
+                <a href="{{ url_for('student_detail', student_id=s.student_id) }}#apply-section"
+                   class="action-btn action-btn--apply" title="Apply for Job on Behalf" style="background:var(--cobalt-pale);color:var(--cobalt-dark);" id="applyBtn-{{ s.student_id }}">📝</a>
+
+                {% set can_manage = is_demo_user or session.get('role') == 'ADMINISTRATOR' or session.get('student_id') == s.student_id %}
+                {% if can_manage %}
+                  <a href="{{ url_for('student_edit', student_id=s.student_id) }}"
+                     class="action-btn action-btn--edit" title="Edit" id="editBtn-{{ s.student_id }}">✏</a>
+
+                  {% if s.student_id in seeded_student_ids %}
+                    <span class="action-btn action-btn--disabled" title="Baseline demonstration student is protected from deletion">🔒</span>
+                  {% else %}
+                    <form method="POST"
+                          action="{{ url_for('student_delete', student_id=s.student_id) }}"
+                          class="inline-form"
+                          onsubmit="return handleStudentDelete(this, '{{ s.student_name|e }}', '{{ s.student_id|e }}', {{ (s.app_count or 0) + (s.plm_count or 0) }});">
+                      <input type="hidden" name="confirm_cleanup" value="0">
+                      <button type="submit" class="action-btn action-btn--delete" title="Delete Student" id="deleteBtn-{{ s.student_id }}">🗑</button>
+                    </form>
+                  {% endif %}
+                {% else %}
+                  <span class="action-btn action-btn--disabled" title="You can only manage your own record">✏</span>
+                  <span class="action-btn action-btn--disabled" title="You can only manage your own record">🗑</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <p>No students match your filters.
+          {% if search or dept_filter %}<a href="{{ url_for('manage_students') }}">Clear filters</a>{% endif %}
+        </p>
+      </div>
+      {% endif %}
+    </section>
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function handleStudentDelete(form, name, id, depCount) {
+  if (depCount > 0) {
+    var ok = confirm("Student " + name + " (" + id + ") has " + depCount + " associated test record(s) (such as job applications).\n\nDo you want to permanently delete this test student along with all associated test records?");
+    if (ok) {
+      form.querySelector('input[name="confirm_cleanup"]').value = "1";
+      return true;
+    }
+    return false;
+  }
+  return confirm("Are you sure you want to delete student " + name + " (" + id + ")?\nThis action cannot be undone.");
+}
+</script>
+{% endblock %}

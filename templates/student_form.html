@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% set is_edit = (action == 'edit') %}
+{% block title %}{{ 'Edit Student' if is_edit else 'Add Student' }} — CampusConnect{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block body %}
+<div class="dashboard-layout">
+  {% include "_sidebar.html" %}
+
+  <main class="dashboard-main">
+    <header class="dashboard-topbar">
+      <div class="topbar-left">
+        <a href="{{ url_for('manage_students') }}" class="breadcrumb-back">← Students</a>
+        <h1 class="topbar-title">{{ '✏ Edit Student' if is_edit else '+ Add Student' }}</h1>
+        {% if is_edit %}
+          <p class="topbar-sub">Editing record: <strong>{{ student.student_id if student else '' }}</strong></p>
+        {% endif %}
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}{% for cat, msg in messages %}
+        <div class="alert alert--{{ cat }}">
+          <span class="alert-icon">{% if cat=='error' %}✕{% else %}ℹ{% endif %}</span>{{ msg }}
+        </div>
+      {% endfor %}{% endif %}
+    {% endwith %}
+
+    <section class="card-section form-card">
+      <form method="POST"
+            action="{{ url_for('student_edit', student_id=student.student_id) if is_edit else url_for('student_new') }}"
+            novalidate id="studentForm">
+
+        <div class="form-grid">
+
+          <!-- Student ID -->
+          <div class="field-group">
+            <label class="field-label" for="f_student_id">Student ID *</label>
+            <input type="text" id="f_student_id" name="student_id" class="field-input"
+                   placeholder="e.g. S1013"
+                   value="{{ student.student_id if student else '' }}"
+                   {% if is_edit %}readonly{% endif %}
+                   required maxlength="6" />
+            {% if is_edit %}
+              <p class="field-hint">ID cannot be changed after creation.</p>
+            {% else %}
+              <p class="field-hint">Format: one letter + 4–5 digits, e.g. S1013</p>
+            {% endif %}
+          </div>
+
+          <!-- Name -->
+          <div class="field-group">
+            <label class="field-label" for="f_student_name">Full Name *</label>
+            <input type="text" id="f_student_name" name="student_name" class="field-input"
+                   placeholder="e.g. Jane Doe"
+                   value="{{ student.student_name if student else '' }}"
+                   required maxlength="50" />
+          </div>
+
+          <!-- Email -->
+          <div class="field-group">
+            <label class="field-label" for="f_student_email">Email Address</label>
+            <input type="email" id="f_student_email" name="student_email" class="field-input"
+                   placeholder="student@example.com"
+                   value="{{ student.student_email if student else '' }}"
+                   maxlength="50" />
+          </div>
+
+          <!-- Phone -->
+          <div class="field-group">
+            <label class="field-label" for="f_student_phone">Phone Number</label>
+            <input type="text" id="f_student_phone" name="student_phone" class="field-input"
+                   placeholder="e.g. 9876500013"
+                   value="{{ student.student_phone if student else '' }}"
+                   maxlength="15" />
+          </div>
+
+          <!-- Department -->
+          <div class="field-group">
+            <label class="field-label" for="f_dept_id">Department *</label>
+            <select id="f_dept_id" name="dept_id" class="field-input field-select" required>
+              <option value="">— Select Department —</option>
+              {% for d in departments %}
+                <option value="{{ d.dept_id }}"
+                  {% if student and student.dept_id == d.dept_id %}selected{% endif %}>
+                  {{ d.dept_name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- CGPA -->
+          <div class="field-group">
+            <label class="field-label" for="f_cgpa">CGPA *</label>
+            <input type="number" id="f_cgpa" name="cgpa" class="field-input"
+                   placeholder="e.g. 8.50" step="0.01" min="0.01" max="10.00"
+                   value="{{ student.cgpa if student else '' }}"
+                   required />
+            <p class="field-hint">Must be between 0.01 and 10.00</p>
+          </div>
+
+          <!-- Graduation Year -->
+          <div class="field-group">
+            <label class="field-label" for="f_graduation_yr">Graduation Year *</label>
+            <input type="number" id="f_graduation_yr" name="graduation_yr" class="field-input"
+                   placeholder="e.g. 2027" min="2000" max="2040"
+                   value="{{ student.graduation_yr if student else '' }}"
+                   required />
+          </div>
+
+          <!-- Skills Selection -->
+          <div class="field-group" style="grid-column: 1 / -1;">
+            <label class="field-label">Student Skills</label>
+            <p class="field-hint" style="margin-bottom: .6rem;">
+              Select all skills that apply to this student.
+            </p>
+            <div class="skills-selector-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .5rem; padding: .85rem; background: var(--ivory-dark, #f8fafc); border: 1px solid var(--ivory-mid, #e2e8f0); border-radius: var(--radius-sm, 6px); max-height: 240px; overflow-y: auto;">
+              {% for sk in skills %}
+                <label style="display: flex; align-items: center; gap: .5rem; cursor: pointer; padding: .35rem .6rem; border-radius: 6px; background: #fff; border: 1px solid var(--ivory-mid, #e2e8f0); font-size: .85rem; user-select: none;">
+                  <input type="checkbox" name="skills" value="{{ sk.skill_id }}"
+                         {% if sk.skill_id in selected_skill_ids %}checked{% endif %}
+                         style="accent-color: var(--cobalt, #2563eb); width: 16px; height: 16px; cursor: pointer;">
+                  <span>{{ sk.skill_name }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+
+        </div><!-- .form-grid -->
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" id="submitStudentBtn">
+            {{ 'Save Changes' if is_edit else 'Create Student' }}
+          </button>
+          <a href="{{ url_for('manage_students') }}" class="btn-secondary">Cancel</a>
+        </div>
+
+      </form>
+    </section>
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.getElementById('studentForm').addEventListener('submit', function(e) {
+  var btn = document.getElementById('submitStudentBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+});
+</script>
+{% endblock %}

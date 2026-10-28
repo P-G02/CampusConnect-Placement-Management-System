@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Company Management — CampusConnect{% endblock %}
+{% block description %}View and manage all registered companies.{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block body %}
+<div class="dashboard-layout">
+  {% include "_sidebar.html" %}
+
+  <main class="dashboard-main">
+    <header class="dashboard-topbar">
+      <div class="topbar-left">
+        <h1 class="topbar-title">🏢 Company Management</h1>
+        <p class="topbar-sub">All companies from the <code>company</code> table &mdash;
+          <strong>{{ total }}</strong> record{{ 's' if total != 1 else '' }} found
+        </p>
+      </div>
+      <div class="topbar-right">
+        <a href="{{ url_for('company_new') }}" class="btn-primary" id="addCompanyBtn">
+          + Add Company
+        </a>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}{% for cat, msg in messages %}
+        <div class="alert alert--{{ cat }}">
+          <span class="alert-icon">{% if cat=='error' %}✕{% elif cat=='success' %}✓{% elif cat=='info' %}ℹ{% else %}⚠{% endif %}</span>
+          {{ msg }}
+        </div>
+      {% endfor %}{% endif %}
+    {% endwith %}
+
+    <!-- ── Search / Filter bar ── -->
+    <form method="GET" action="{{ url_for('manage_companies') }}" class="filter-bar" id="companyFilterForm">
+      <div class="filter-group">
+        <input type="text" name="q" id="companySearch" class="filter-input"
+               placeholder="Search by name, email or ID…"
+               value="{{ search }}" />
+      </div>
+      <div class="filter-group">
+        <select name="locn" id="locnFilter" class="filter-select">
+          <option value="">All Locations</option>
+          {% for loc in locations %}
+            <option value="{{ loc }}" {% if locn_filter == loc %}selected{% endif %}>{{ loc }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-filter">Filter</button>
+      {% if search or locn_filter %}
+        <a href="{{ url_for('manage_companies') }}" class="btn-reset">Clear</a>
+      {% endif %}
+    </form>
+
+    <!-- ── Company Cards Grid ── -->
+    {% if companies %}
+    <div class="company-grid">
+      {% for c in companies %}
+      <div class="company-card {% if session.get('company_id') == c.company_id %}company-card--own{% endif %}">
+        <div class="company-card-header">
+          <div class="company-card-avatar">{{ c.company_name[0] }}</div>
+          <div class="company-card-info">
+            <h3 class="company-card-name">
+              <a href="{{ url_for('company_detail', company_id=c.company_id) }}" class="link-plain">
+                {{ c.company_name }}
+              </a>
+              {% if session.get('company_id') == c.company_id %}
+                <span class="badge-you">You</span>
+              {% endif %}
+            </h3>
+            <span class="td-id">{{ c.company_id }}</span>
+          </div>
+        </div>
+        <div class="company-card-meta">
+          <div class="meta-item">
+            <span class="meta-label">Location</span>
+            <span class="meta-value">📍 {{ c.company_locn or '—' }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Email</span>
+            <span class="meta-value td-email">{{ c.company_email or '—' }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Phone</span>
+            <span class="meta-value">{{ c.company_phone or '—' }}</span>
+          </div>
+        </div>
+        <div class="company-card-stats">
+          <div class="mini-stat">
+            <span class="mini-stat-num">{{ c.posting_count }}</span>
+            <span class="mini-stat-lbl">Postings</span>
+          </div>
+          <div class="mini-stat">
+            <span class="mini-stat-num">{{ c.placement_count }}</span>
+            <span class="mini-stat-lbl">Placements</span>
+          </div>
+        </div>
+        <div class="company-card-actions">
+          <a href="{{ url_for('company_detail', company_id=c.company_id) }}"
+             class="action-btn action-btn--view" title="View" id="viewCompanyCardBtn-{{ c.company_id }}">👁 View</a>
+
+          {% set can_edit = is_demo_user or session.get('role') == 'STUDENT' or session.get('company_id') == c.company_id %}
+          {% if can_edit %}
+          <a href="{{ url_for('company_edit', company_id=c.company_id) }}"
+             class="action-btn action-btn--edit" title="Edit" id="editCompanyCardBtn-{{ c.company_id }}">✏ Edit</a>
+
+          <form method="POST"
+                action="{{ url_for('company_delete', company_id=c.company_id) }}"
+                class="inline-form"
+                onsubmit="return confirm('Delete {{ c.company_name }}? This cannot be undone.')">
+            <button type="submit" class="action-btn action-btn--delete" title="Delete" id="deleteCompanyCardBtn-{{ c.company_id }}">🗑 Delete</button>
+          </form>
+          {% else %}
+          <span class="action-btn action-btn--disabled" title="You can only edit your own company">✏ Edit</span>
+          <span class="action-btn action-btn--disabled" title="You can only delete your own company">🗑 Delete</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Also show as table for detail scanning -->
+    <section class="card-section">
+      <h2 class="section-title">📋 All Companies Table</h2>
+      <div class="table-wrapper">
+        <table class="data-table" id="companyTable">
+          <thead>
+            <tr>
+              <th>ID</th><th>Name</th><th>Email</th>
+              <th>Phone</th><th>Location</th><th>Postings</th><th>Placements</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in companies %}
+            <tr class="{% if session.get('company_id') == c.company_id %}row--own{% endif %}" id="company-row-{{ c.company_id }}">
+              <td class="td-id">
+                <a href="{{ url_for('company_detail', company_id=c.company_id) }}" class="link-id">
+                  {{ c.company_id }}
+                </a>
+              </td>
+              <td class="td-name">
+                {{ c.company_name }}
+                {% if session.get('company_id') == c.company_id %}<span class="badge-you">You</span>{% endif %}
+              </td>
+              <td class="td-email">{{ c.company_email or '—' }}</td>
+              <td>{{ c.company_phone or '—' }}</td>
+              <td>{{ c.company_locn or '—' }}</td>
+              <td><span class="count-badge">{{ c.posting_count }}</span></td>
+              <td><span class="count-badge">{{ c.placement_count }}</span></td>
+              <td class="td-actions">
+                <a href="{{ url_for('company_detail', company_id=c.company_id) }}"
+                   class="action-btn action-btn--view" title="View" id="viewCompanyTableBtn-{{ c.company_id }}">👁</a>
+
+                {% if can_edit %}
+                <a href="{{ url_for('company_edit', company_id=c.company_id) }}"
+                   class="action-btn action-btn--edit" title="Edit" id="editCompanyTableBtn-{{ c.company_id }}">✏</a>
+                <form method="POST"
+                      action="{{ url_for('company_delete', company_id=c.company_id) }}"
+                      class="inline-form"
+                      onsubmit="return confirm('Delete {{ c.company_name }}?')">
+                  <button type="submit" class="action-btn action-btn--delete" title="Delete" id="deleteCompanyTableBtn-{{ c.company_id }}">🗑</button>
+                </form>
+                {% else %}
+                <span class="action-btn action-btn--disabled" title="Edit restricted">✏</span>
+                <span class="action-btn action-btn--disabled" title="Delete restricted">🗑</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    {% else %}
+    <div class="card-section">
+      <div class="empty-state">
+        <p>No companies match your filters.
+          {% if search or locn_filter %}<a href="{{ url_for('manage_companies') }}">Clear filters</a>{% endif %}
+        </p>
+      </div>
+    </div>
+    {% endif %}
+  </main>
+</div>
+{% endblock %}

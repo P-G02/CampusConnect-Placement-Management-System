@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block title %}Student Dashboard — CampusConnect{% endblock %}
+{% block description %}Your placement portal dashboard, applications, and opportunities.{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block body %}
+<div class="dashboard-layout">
+
+
+  {% include "_sidebar.html" %}
+
+
+  <!-- ── Main Content ──────────────────────────────────────── -->
+  <main class="dashboard-main">
+
+    <!-- Top bar -->
+    <header class="dashboard-topbar">
+      <div class="topbar-left">
+        <h1 class="topbar-title">
+          Welcome back, <span class="accent">{{ student.student_name if student else session.get('display_name', 'Student') }}</span> 👋
+        </h1>
+        <p class="topbar-sub">
+          Student Portal · {{ student.student_id if student else session.get('student_id') }}
+          {% if student and student.student_id != session.get('student_id') %}
+            <span style="color:var(--cobalt);font-weight:600;">(Demo Mode: Acting on behalf of {{ student.student_name }})</span>
+          {% endif %}
+        </p>
+      </div>
+      <div class="topbar-right">
+        {% if is_demo_user %}
+          <span class="role-badge role-badge--student" style="background:var(--cobalt); color:#fff; margin-right:.4rem;">🚀 Demo Mode</span>
+        {% endif %}
+        <span class="role-badge role-badge--student">🎓 Student</span>
+      </div>
+    </header>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert--{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- ── Authorized Demo Workflow: Apply on Behalf & Student Switcher ── -->
+    {% if is_demo_user %}
+    <section class="card-section" style="background: linear-gradient(135deg, #f0f4ff, #e8eeff); border: 1.5px solid var(--cobalt-light); margin-bottom: 1.75rem; padding: 1.25rem 1.5rem;" id="demo-workflow-card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+        <div>
+          <span class="role-badge role-badge--student" style="background:var(--cobalt); color:#fff; font-size:.72rem;">DEMO WORKFLOW</span>
+          <strong style="margin-left:.5rem; color:var(--cobalt-dark); font-size:1.05rem;">Apply on Behalf of Student</strong>
+          <p style="font-size:.82rem; color:var(--ink-muted); margin-top:.25rem;">
+            College Demo Mode: Select any registered student (including your dummy student) to apply for jobs or switch dashboard view.
+          </p>
+        </div>
+        <form method="POST" action="{{ url_for('apply_job') }}" style="display:flex; gap:.6rem; align-items:center; flex-wrap:wrap;" id="demoApplyForm">
+          <input type="hidden" name="redirect_to" value="{{ url_for('student_dashboard') }}">
+          <select name="student_id" class="filter-select" style="min-width:190px; padding:.45rem .75rem; font-size:.85rem;" required id="demoSelectStudent">
+            <option value="">— Select Student —</option>
+            {% for st in all_students %}
+              <option value="{{ st.student_id }}" {% if student and st.student_id == student.student_id %}selected{% endif %}>
+                {{ st.student_name }} ({{ st.student_id }}) · {{ st.cgpa }} CGPA
+              </option>
+            {% endfor %}
+          </select>
+          <select name="opp_id" class="filter-select" style="min-width:240px; padding:.45rem .75rem; font-size:.85rem;" required id="demoSelectOpportunity">
+            <option value="">— Select Available Job —</option>
+            {% for op in all_opportunities %}
+              <option value="{{ op.opp_id }}">
+                {{ op.opp_title }} ({{ op.company_name }}) · Min {{ op.min_cgpa }}
+              </option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn-primary" style="padding:.5rem 1.1rem; font-size:.85rem;" id="demoApplyBtn">
+            🚀 Apply on Behalf
+          </button>
+        </form>
+      </div>
+      <div style="margin-top:.75rem; padding-top:.6rem; border-top:1px dashed rgba(26,79,196,.2); display:flex; gap:1rem; align-items:center; font-size:.82rem; flex-wrap:wrap;">
+        <span style="color:var(--ink-muted); font-weight:500;">Viewing student portal for:</span>
+        <form method="GET" action="{{ url_for('student_dashboard') }}" style="display:inline-flex; gap:.4rem; align-items:center;">
+          <select name="view_as" onchange="this.form.submit()" class="filter-select" style="padding:.2rem .5rem; font-size:.8rem; min-width:180px;" id="demoViewAsSelect">
+            {% for st in all_students %}
+              <option value="{{ st.student_id }}" {% if student and st.student_id == student.student_id %}selected{% endif %}>
+                {{ st.student_name }} ({{ st.student_id }})
+              </option>
+            {% endfor %}
+          </select>
+        </form>
+        {% if student and student.student_id != session.get('student_id') %}
+          <a href="{{ url_for('student_dashboard', view_as='RESET') }}" style="color:var(--cobalt); font-weight:500; text-decoration:underline;">↺ Reset to my default account ({{ session.get('student_id') }})</a>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- ── Placement Banner ────────────────────────────────── -->
+    {% if placement %}
+    <section class="placement-banner" id="placement-section">
+      <div class="placement-banner-inner">
+        <div class="placement-confetti">🎉</div>
+        <div>
+          <h2 class="placement-banner-title">Congratulations! You're Placed!</h2>
+          <p class="placement-banner-sub">
+            {{ placement.company_name }} · {{ placement.opp_title }}
+            {% if placement.package %}
+              · ₹{{ "{:,.0f}".format(placement.package) }} p.a.
+            {% endif %}
+          </p>
+          <p class="placement-banner-date">Placed on {{ placement.plm_date }}</p>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- ── Profile Card ───────────────────────────────────── -->
+    {% if student %}
+    <section class="card-section" id="profile-section">
+      <h2 class="section-title">📋 My Profile</h2>
+      <div class="profile-grid">
+        <div class="profile-avatar">
+          <span class="avatar-letter">{{ student.student_name[0] }}</span>
+        </div>
+        <div class="profile-details">
+          <h3 class="profile-name">{{ student.student_name }}</h3>
+          <div class="profile-meta-grid">
+            <div class="meta-item"><span class="meta-label">Email</span><span class="meta-value">{{ student.student_email }}</span></div>
+            <div class="meta-item"><span class="meta-label">Phone</span><span class="meta-value">{{ student.student_phone or '—' }}</span></div>
+            <div class="meta-item"><span class="meta-label">Department</span><span class="meta-value">{{ student.dept_name }}</span></div>
+            <div class="meta-item"><span class="meta-label">CGPA</span><span class="meta-value cgpa-badge">{{ student.cgpa }}</span></div>
+            <div class="meta-item"><span class="meta-label">Graduation Year</span><span class="meta-value">{{ student.graduation_yr }}</span></div>
+          </div>
+          {% if skills %}
+          <div class="skills-section">
+            <span class="meta-label">Skills</span>
+            <div class="skill-tags">
+              {% for skill in skills %}
+                <span class="skill-tag">{{ skill }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- ── Opportunities ─────────────────────────────────── -->
+    <section class="card-section" id="opportunities-section">
+      <h2 class="section-title">🚀 Available Opportunities <span class="count-badge">{{ opportunities|length }}</span></h2>
+      {% if opportunities %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Role</th>
+              <th>Type</th>
+              <th>Location</th>
+              <th>Package / Stipend</th>
+              <th>Min CGPA</th>
+              <th>Deadline</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for opp in opportunities %}
+            <tr>
+              <td class="td-company">{{ opp.company_name }}</td>
+              <td class="td-role">{{ opp.opp_title }}</td>
+              <td><span class="type-badge type-badge--{{ opp.opp_type.lower() }}">{{ opp.opp_type }}</span></td>
+              <td>{{ opp.opp_locn }}</td>
+              <td>
+                {% if opp.package %}₹{{ "{:,.0f}".format(opp.package) }}{% endif %}
+                {% if opp.stipend %}₹{{ "{:,.0f}".format(opp.stipend) }}/mo{% endif %}
+              </td>
+              <td>{{ opp.min_cgpa }}</td>
+              <td class="td-deadline">{{ opp.deadline }}</td>
+              <td>
+                {% if opp.opp_id in applied_opp_ids %}
+                  <span class="status-badge status-badge--cleared" title="Application already submitted">✓ Applied</span>
+                {% else %}
+                  <form method="POST" action="{{ url_for('apply_job') }}" class="inline-form">
+                    <input type="hidden" name="student_id" value="{{ student.student_id }}">
+                    <input type="hidden" name="opp_id" value="{{ opp.opp_id }}">
+                    <input type="hidden" name="redirect_to" value="{{ url_for('student_dashboard') }}">
+                    <button type="submit" class="btn-primary" style="padding:.3rem .75rem; font-size:.8rem; border-radius:6px;" id="applyBtn-{{ opp.opp_id }}">
+                      Apply
+                    </button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <p>No eligible opportunities at the moment. Check back soon!</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <!-- ── Applications ──────────────────────────────────── -->
+    <section class="card-section" id="applications-section">
+      <h2 class="section-title">📋 My Applications <span class="count-badge">{{ applications|length }}</span></h2>
+      {% if applications %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Company</th>
+              <th>Role</th>
+              <th>Type</th>
+              <th>Applied On</th>
+              <th>Interview Status</th>
+              <th>Round</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for app in applications %}
+            <tr>
+              <td class="td-id">{{ app.appl_id }}</td>
+              <td>{{ app.company_name }}</td>
+              <td>{{ app.opp_title }}</td>
+              <td><span class="type-badge type-badge--{{ app.opp_type.lower() }}">{{ app.opp_type }}</span></td>
+              <td>{{ app.appl_date }}</td>
+              <td>
+                <span class="status-badge status-badge--{{ app.interview_status.lower() }}">
+                  {{ app.interview_status }}
+                </span>
+                {% if app.interview_date %}
+                  <div style="font-size:.78rem; margin-top:.25rem; color:var(--cobalt-dark);">
+                    📅 {{ app.interview_date.strftime('%d %b %Y, %I:%M %p') }}
+                  </div>
+                {% endif %}
+              </td>
+              <td>
+                {% if app.interview_rd %}Round {{ app.interview_rd }}{% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <p>No applications yet. Explore opportunities above!</p>
+      </div>
+      {% endif %}
+    </section>
+
+  </main>
+</div>
+{% endblock %}
